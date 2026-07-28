@@ -25,9 +25,12 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv export --frozen --format requirements-txt --output-file requirements-audit.txt
       - uses: pypa/gh-action-pip-audit@v1.1.0
         with:
-          locked: true
+          inputs: requirements-audit.txt
+          no-deps: true
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
