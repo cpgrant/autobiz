@@ -32,7 +32,7 @@ jobs:
           context: .
           load: true
           tags: autobiz:ci
-      - uses: aquasecurity/trivy-action@0.33.1
+      - uses: aquasecurity/trivy-action@0.36.0
         with:
           image-ref: autobiz:ci
           format: sarif
