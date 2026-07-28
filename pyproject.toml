@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "autobiz"
+version = "0.1.0"
+description = "Controlled foundation for a small AI-assisted business"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "django>=5.2,<5.3",
+  "gunicorn>=23,<24",
+  "psycopg[binary]>=3.2,<4",
+]
+
+[dependency-groups]
+dev = [
+  "pyright>=1.1.400",
+  "pytest>=8.3,<9",
+  "pytest-django>=4.11,<5",
+  "ruff>=0.12,<1",
+]
+ai = [
+  "openai-agents>=0.2,<1",
+  "pydantic-settings>=2.10,<3",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["autobiz", "apps"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "autobiz.settings"
+python_files = ["test_*.py", "*_tests.py"]
+addopts = "-q"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["**/migrations/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "DJ"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+include = ["autobiz", "apps", "tests"]
+exclude = ["**/migrations"]
+reportAssignmentType = false
+reportReturnType = false
+reportArgumentType = false
+reportAttributeAccessIssue = false
