@@ -1,9 +1,12 @@
-.PHONY: setup up down stack dev migrate migrations test lint format typecheck check backup restore-rehearsal
+.PHONY: setup up db-up down stack dev migrate migrations test lint format typecheck check backup restore-rehearsal
 
 setup:
 	uv sync
 
 up:
+	docker compose up -d --build
+
+db-up:
 	docker compose up -d db
 
 down:

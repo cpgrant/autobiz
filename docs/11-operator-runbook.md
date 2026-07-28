@@ -19,22 +19,22 @@ automation while the validation gate remains open.
 cp .env.example .env
 make setup
 make up
-make migrate
 ```
 
 Do not place production credentials or customer data in `.env`.
 
 ## Daily local operation
 
-Start PostgreSQL:
+Start the complete containerized stack in the background:
 
 ```bash
 make up
 ```
 
-Run Django directly for development:
+For direct Django development, start only PostgreSQL and then the development server:
 
 ```bash
+make db-up
 make dev
 ```
 
@@ -116,7 +116,7 @@ Never edit an already-applied migration to change production behavior.
 Start PostgreSQL and apply migrations before taking a backup:
 
 ```bash
-make up
+make db-up
 make migrate
 make backup
 make restore-rehearsal

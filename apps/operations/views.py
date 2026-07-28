@@ -1,6 +1,16 @@
 from django.db import connections
 from django.db.utils import OperationalError
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
+
+
+def home(request):
+    return HttpResponse(
+        """<!doctype html>
+<html lang=\"en\"><head><meta charset=\"utf-8\"><title>Autobiz</title></head>
+<body><main><h1>Autobiz</h1><p>Controlled business foundation is running.</p>
+<ul><li><a href=\"/health/\">Health</a></li><li><a href=\"/ready/\">Readiness</a></li>
+<li><a href=\"/admin/\">Django admin</a></li></ul></main></body></html>"""
+    )
 
 
 def health(request):

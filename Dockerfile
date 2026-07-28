@@ -14,6 +14,8 @@ COPY manage.py ./manage.py
 
 RUN pip install --no-cache-dir .
 
+RUN DJANGO_SECRET_KEY=build-only python manage.py collectstatic --noinput
+
 USER autobiz
 EXPOSE 8000
 

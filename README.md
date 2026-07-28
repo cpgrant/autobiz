@@ -44,10 +44,11 @@ remain gated. See [Required validation gate](docs/09-required-validation-gate.md
 ```bash
 make setup
 make up
-make migrate
-make dev
 make test
 ```
+
+`make up` builds and starts the complete Django and PostgreSQL stack in the background.
+Use `make db-up` followed by `make dev` when running Django directly from the host.
 
 Copy `.env.example` to `.env` before using PostgreSQL locally. The default Django
 configuration uses SQLite when `DB_HOST` is not set, which keeps initial tests and
