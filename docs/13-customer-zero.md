@@ -1,6 +1,6 @@
 # Customer Zero experiment
 
-**Status:** Days 1–7 complete; controlled-player phase next — initiated 2026-08-01
+**Status:** Week 2 complete; limited AI assistance remains deferred — initiated 2026-08-01
 
 **Owner:** Founder/operator
 
@@ -158,10 +158,34 @@ event. Approval still cannot enable an unavailable or external executor.
 
 ### Week 2 — Build the controlled player
 
-- run the deterministic daily cycle;
-- route consequential proposals through approvals;
-- simulate bounded actions and record every material result;
-- create daily and weekly reports.
+- [x] run the deterministic daily cycle;
+- [x] route consequential proposals through approvals;
+- [x] simulate bounded actions and record every material result;
+- [x] create daily and weekly reports;
+- [x] expose the runner and its results through the staff-only operator console.
+
+The implemented component is named the **Daily Cycle Runner**. Each run selects the
+next sequential synthetic date, refreshes metrics and priorities, snapshots goals,
+pipeline, work, finances, risks, and prior cycles, then selects the three highest
+priority open work items. It creates one date-keyed internal state-review task and
+proposal, simulates that reversible level-2 action, and marks the task complete.
+
+When there is no pending communication approval, it selects the open opportunity
+with the highest probability, then value and stable key, and creates a date-keyed
+follow-up work item, workflow, approval, and level-3 proposal. An existing pending
+communication approval suppresses another request. Approval cannot enable the
+disabled external executor.
+
+The cycle writes ordered audit events, a daily report, updated measures and goal
+progress, and a week-start-keyed report derived from completed daily cycles. A
+completed date is idempotent. A failed cycle is marked failed, audited without
+persisting partial actions, and the same date is selected for recovery.
+
+Run it from `/operator/` or locally with:
+
+```bash
+uv run python manage.py run_customer_zero_cycle
+```
 
 ### Week 3 — Add limited AI assistance
 
@@ -212,6 +236,17 @@ zero unauthorized external actions.
 - preserved the independent execution gate after approval and kept external execution disabled;
 - added a repeatable refresh command and behavioral coverage for metrics, priority, access, and controls.
 
+### 2026-08-01 — Week 2 Daily Cycle Runner
+
+- implemented sequential, deterministic synthetic operating days;
+- read and audited all authoritative company-state categories before planning;
+- selected work using documented priority and stable tie-break rules;
+- added idempotent daily tasks, proposals, workflows, and approvals;
+- simulated only the bounded reversible internal state review;
+- added safe failure recording and same-date recovery;
+- generated durable daily and weekly operating reports;
+- exposed cycle execution and reports in the staff-only operator console.
+
 ### Verification evidence
 
 ![Customer Zero company-status dashboard](images/customer-zero-dashboard.png)
@@ -222,12 +257,23 @@ zero unauthorized external actions.
 
 ![Days 4–7 company dashboard with deterministic measures](images/customer-zero-days-4-7-dashboard.png)
 
+### Week 2 runner evidence
+
+![Daily Cycle Runner creating the first sequential day and approval](images/week2-daily-cycle-runner.png)
+
+![Daily and weekly operating reports](images/week2-daily-weekly-reports.png)
+
+![Next sequential day reusing the pending approval](images/week2-sequential-day.png)
+
 - migration applied successfully to the local development database;
 - scenario loader completed twice without duplicating records;
 - Django system check reported no issues;
-- formatting, linting, type checking, and all 28 tests passed;
+- formatting, linting, type checking, and all 34 tests passed;
 - browser inspection confirmed the synthetic label, company measures, priority
   work, pending approval, operating report, audit event, action-control states,
   and open risks are visible;
 - browser execution verified that human approval updates the proposal and approval
-  metric while external execution remains disabled.
+  metric while external execution remains disabled;
+- browser execution completed 2026-08-02 and 2026-08-03 sequentially, created one
+  pending approval, suppressed its duplicate on the next day, produced two weekly
+  periods, and kept unauthorized external actions at zero.

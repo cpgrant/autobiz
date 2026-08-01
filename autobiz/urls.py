@@ -16,6 +16,7 @@ from apps.operations.views import (
     operator_dashboard,
     operator_decide_approval,
     operator_refresh,
+    operator_run_cycle,
     readiness,
 )
 
@@ -25,6 +26,7 @@ urlpatterns = [
     path("company/", company_status, name="company-status"),
     path("operator/", operator_dashboard, name="operator-dashboard"),
     path("operator/refresh/", operator_refresh, name="operator-refresh"),
+    path("operator/run-cycle/", operator_run_cycle, name="operator-run-cycle"),
     path(
         "operator/approvals/<uuid:approval_id>/decide/<slug:decision>/",
         operator_decide_approval,

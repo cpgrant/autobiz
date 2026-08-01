@@ -92,8 +92,33 @@ erDiagram
 
 The implemented Customer Zero boundary includes company state, goals, opportunities,
 work, finance, risk, metrics, operating cycles, action proposals, approvals, and
-append-only audit events. The synthetic customer journey adds CustomerRequest,
+append-only audit events. Week 2 adds durable weekly reports derived from completed
+cycles. The synthetic customer journey adds CustomerRequest,
 Offer, SyntheticPayment, and Deliverable while keeping PostgreSQL authoritative.
+
+## Deterministic operating-cycle boundary
+
+```mermaid
+flowchart TD
+    O["Staff operator"] --> R["Run next synthetic day"]
+    R --> S["Read authoritative company state"]
+    S --> P["Refresh deterministic metrics and priorities"]
+    P --> A["Select three highest-priority work items"]
+    A --> I["Simulate bounded internal state review"]
+    A --> C{"Pending consequential approval?"}
+    C -->|No| Q["Create approval request"]
+    C -->|Yes| K["Keep existing approval"]
+    I --> D["Daily report and audit events"]
+    Q --> D
+    K --> D
+    D --> W["Weekly report from completed cycles"]
+    Q -. no executor .-> X["External execution disabled"]
+```
+
+The runner is a synchronous domain service invoked explicitly by a staff operator
+or management command. Date-keyed database constraints and `get_or_create` calls
+prevent duplicate business records. Each completed date is immutable to the runner;
+failed dates are retried after the partial transaction is rolled back.
 
 ## Synthetic customer journey boundary
 

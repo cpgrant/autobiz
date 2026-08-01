@@ -8,6 +8,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from .cycle_services import run_daily_cycle
 from .forms import DeliverableReviewForm, SyntheticCustomerRequestForm
 from .models import (
     Approval,
@@ -114,6 +115,7 @@ def operator_dashboard(request):
             "work_items": company.work_items.exclude(status=WorkItem.Status.DONE)[:10],
             "pending_approvals": pending_approvals,
             "cycles": company.operating_cycles.all()[:10],
+            "weekly_reports": company.weekly_reports.all()[:8],
             "audit_events": AuditEvent.objects.order_by("-created_at")[:20],
         },
     )
@@ -128,6 +130,20 @@ def operator_refresh(request):
         request,
         f"Refreshed {result.metrics_updated} metrics and prioritized "
         f"{result.work_items_prioritized} work items.",
+    )
+    return redirect("operator-dashboard")
+
+
+@staff_member_required
+@require_POST
+def operator_run_cycle(request):
+    company = get_object_or_404(Company, key="autobiz")
+    result = run_daily_cycle(company=company, actor=f"user:{request.user.pk}")
+    messages.success(
+        request,
+        f"Completed synthetic day {result.cycle.operating_date}: "
+        f"{result.internal_actions_simulated} bounded action simulated and "
+        f"{result.approvals_requested} approval request created.",
     )
     return redirect("operator-dashboard")
 

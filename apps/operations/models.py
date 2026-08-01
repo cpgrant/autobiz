@@ -290,6 +290,26 @@ class OperatingCycle(TimestampedModel):
         return f"{self.company} — {self.operating_date}"
 
 
+class WeeklyReport(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="weekly_reports")
+    week_start = models.DateField()
+    cycle_count = models.PositiveSmallIntegerField(default=0)
+    report = models.TextField()
+    is_synthetic = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-week_start"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "week_start"], name="unique_company_weekly_report"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.company} — week of {self.week_start}"
+
+
 class ActionProposal(TimestampedModel):
     class AuthorityLevel(models.IntegerChoices):
         OBSERVE = 0, "Observe"

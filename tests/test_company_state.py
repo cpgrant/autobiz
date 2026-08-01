@@ -49,7 +49,7 @@ def test_operator_console_requires_staff(client, customer_zero, operator):
     assert "Operator console" in content
     assert "Pending approvals" in content
     assert "send-communication" in content
-    assert "external actions remain disabled" in content
+    assert "External actions remain disabled" in content
 
 
 def test_operator_approval_updates_proposal_but_does_not_enable_execution(

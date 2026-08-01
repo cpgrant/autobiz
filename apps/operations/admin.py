@@ -18,6 +18,7 @@ from .models import (
     Product,
     Risk,
     SyntheticPayment,
+    WeeklyReport,
     WorkflowRun,
     WorkItem,
 )
@@ -121,6 +122,12 @@ class MetricAdmin(admin.ModelAdmin):
 class OperatingCycleAdmin(admin.ModelAdmin):
     list_display = ("company", "operating_date", "status", "is_synthetic")
     list_filter = ("status",)
+
+
+@admin.register(WeeklyReport)
+class WeeklyReportAdmin(admin.ModelAdmin):
+    list_display = ("company", "week_start", "cycle_count", "is_synthetic", "updated_at")
+    list_filter = ("is_synthetic",)
 
 
 @admin.register(ActionProposal)
