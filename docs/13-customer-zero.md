@@ -73,6 +73,7 @@ customer and exercise one bounded Establish journey:
 ```text
 Submit request → review fixed offer → accept → simulate payment
 → inspect completed work → review deliverable → accept or request revision
+→ create revision work → produce next version → review again
 ```
 
 The price is deterministically fixed at €1,200. The payment simulator asks for no
@@ -85,6 +86,12 @@ cannot modify price, scope, authority policy, system instructions, or execution
 capability. UUID journey links are sufficient only for this local synthetic mode;
 real customers will require authentication and authorization.
 
+Deliverables are versioned and append-only at the business-record level. A revision
+request preserves the reviewed version, creates a linked Delivery work item, and
+waits for bounded internal revision simulation. Producing the revision marks the old
+version non-current, creates the next version for review, records the change in the
+audit history, and allows another accept-or-revise decision.
+
 ### Journey evidence
 
 | Request | Payment boundary |
@@ -96,6 +103,8 @@ real customers will require authentication and authorization.
 ![Company state after the completed customer journey](images/synthetic-customer-company-update.png)
 
 ![Corrected customer review controls](images/corrected-review-controls.png)
+
+![Version 2 returned to review with preserved history](images/versioned-revised-deliverable.png)
 
 ## Authority matrix
 
@@ -170,6 +179,13 @@ zero unauthorized external actions.
 
 - aligned each radio control with its decision label and made the full choice row clickable;
 - visually verified the corrected review form and added regression coverage.
+
+### 2026-08-01 — Versioned revision loop
+
+- preserved prior deliverables and identified one current version per request;
+- created a controlled revision work item from customer feedback;
+- added deterministic version production with named owners, targets, and cash review;
+- returned the revised deliverable to customer review with visible version history.
 
 ### Verification evidence
 

@@ -161,5 +161,13 @@ class SyntheticPaymentAdmin(admin.ModelAdmin):
 
 @admin.register(Deliverable)
 class DeliverableAdmin(admin.ModelAdmin):
-    list_display = ("title", "customer_request", "status", "is_synthetic", "updated_at")
-    list_filter = ("status", "is_synthetic")
+    list_display = (
+        "title",
+        "customer_request",
+        "version",
+        "is_current",
+        "status",
+        "is_synthetic",
+        "updated_at",
+    )
+    list_filter = ("status", "is_current", "is_synthetic")

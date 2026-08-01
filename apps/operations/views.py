@@ -17,6 +17,7 @@ from .models import (
 )
 from .services import (
     accept_synthetic_offer,
+    produce_revised_deliverable,
     review_deliverable,
     simulate_payment_and_delivery,
     submit_synthetic_request,
@@ -157,14 +158,16 @@ def customer_engagement(request, request_id):
             "customer_request": customer_request_record,
             "engagement": customer_request_record.engagement,
             "work_items": customer_request_record.engagement.work_items.all(),
-            "deliverable": customer_request_record.deliverable,
+            "deliverable": customer_request_record.deliverables.get(is_current=True),
         },
     )
 
 
 def customer_deliverable(request, request_id):
     customer_request_record = _synthetic_request(request_id)
-    artifact = get_object_or_404(Deliverable, customer_request=customer_request_record)
+    artifact = get_object_or_404(
+        Deliverable, customer_request=customer_request_record, is_current=True
+    )
     form = DeliverableReviewForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         review_deliverable(
@@ -176,5 +179,17 @@ def customer_deliverable(request, request_id):
     return render(
         request,
         "operations/customer_deliverable.html",
-        {"customer_request": customer_request_record, "deliverable": artifact, "form": form},
+        {
+            "customer_request": customer_request_record,
+            "deliverable": artifact,
+            "deliverable_versions": customer_request_record.deliverables.all(),
+            "form": form,
+        },
     )
+
+
+@require_POST
+def customer_simulate_revision(request, request_id):
+    customer_request_record = _synthetic_request(request_id)
+    produce_revised_deliverable(customer_request=customer_request_record)
+    return redirect("customer-deliverable", request_id=request_id)

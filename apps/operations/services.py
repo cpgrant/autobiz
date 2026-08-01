@@ -293,9 +293,11 @@ def simulate_payment_and_delivery(*, customer_request: CustomerRequest) -> Deliv
         )
     deliverable, _ = Deliverable.objects.get_or_create(
         customer_request=locked,
+        version=1,
         defaults={
             "title": "Controlled operating plan",
             "content": _operating_plan_content(locked),
+            "is_current": True,
             "is_synthetic": True,
         },
     )
@@ -306,8 +308,12 @@ def simulate_payment_and_delivery(*, customer_request: CustomerRequest) -> Deliv
 def review_deliverable(
     *, customer_request: CustomerRequest, decision: str, revision_note: str = ""
 ) -> Deliverable:
-    deliverable = Deliverable.objects.select_for_update().get(customer_request=customer_request)
+    deliverable = Deliverable.objects.select_for_update().get(
+        customer_request=customer_request, is_current=True
+    )
     locked = CustomerRequest.objects.select_for_update().get(pk=customer_request.pk)
+    if deliverable.status != Deliverable.Status.READY:
+        raise ValidationError("Only a deliverable ready for review can be decided.")
     if decision == "accept":
         deliverable.status = Deliverable.Status.ACCEPTED
         deliverable.revision_note = ""
@@ -318,6 +324,18 @@ def review_deliverable(
         deliverable.revision_note = revision_note.strip()
         locked.status = CustomerRequest.Status.REVISION_REQUESTED
         event_type = "synthetic-deliverable-revision-requested"
+        WorkItem.objects.get_or_create(
+            company=locked.company,
+            key=f"revision-{locked.pk.hex[:8]}-v{deliverable.version + 1}",
+            defaults={
+                "engagement": locked.engagement,
+                "title": f"Produce deliverable version {deliverable.version + 1}",
+                "function": WorkItem.Function.DELIVERY,
+                "status": WorkItem.Status.READY,
+                "priority": 1,
+                "is_synthetic": True,
+            },
+        )
     else:
         raise ValidationError("Choose accept or provide a revision request.")
     deliverable.save(update_fields=["status", "revision_note", "updated_at"])
@@ -328,6 +346,81 @@ def review_deliverable(
         payload={"customer_request_id": str(locked.pk), "synthetic": True},
     )
     return deliverable
+
+
+def _revised_operating_plan_content(deliverable: Deliverable) -> str:
+    return f"""{deliverable.content}
+
+8. Revision changes in version {int(deliverable.version) + 1}
+Customer revision request: {deliverable.revision_note}
+
+Named owners
+- Founder/operator: confirm goals, approve consequential decisions, and own the weekly review.
+- Direction: maintain priorities and decision records.
+- Delivery: complete weekly actions and quality checks.
+- Finance: prepare the cash-flow review and reconcile synthetic entries.
+- Operations: track exceptions, approvals, and audit evidence.
+
+Measurable success targets
+- Complete at least 90% of committed weekly priority work.
+- Resolve high-severity exceptions within one business day.
+- Keep unauthorized external actions at zero.
+- Review cash position, expected receipts, costs, and 30-day runway every week.
+
+Weekly cash-flow review
+Review opening cash, synthetic revenue, committed costs, expected closing cash,
+exceptions, and any spending decision requiring human approval.
+"""
+
+
+@transactional
+def produce_revised_deliverable(*, customer_request: CustomerRequest) -> Deliverable:
+    """Simulate bounded internal revision work while retaining prior versions."""
+    locked = CustomerRequest.objects.select_for_update().get(pk=customer_request.pk)
+    current = Deliverable.objects.select_for_update().get(customer_request=locked, is_current=True)
+    if current.status != Deliverable.Status.REVISION_REQUESTED:
+        raise ValidationError("The current deliverable does not have a revision request.")
+
+    new_version = int(current.version) + 1
+    revision_work, _ = WorkItem.objects.get_or_create(
+        company=locked.company,
+        key=f"revision-{locked.pk.hex[:8]}-v{new_version}",
+        defaults={
+            "engagement": locked.engagement,
+            "title": f"Produce deliverable version {new_version}",
+            "function": WorkItem.Function.DELIVERY,
+            "status": WorkItem.Status.READY,
+            "priority": 1,
+            "is_synthetic": True,
+        },
+    )
+    current.is_current = False
+    current.save(update_fields=["is_current", "updated_at"])
+    revised = Deliverable.objects.create(
+        customer_request=locked,
+        version=new_version,
+        is_current=True,
+        title=f"Controlled operating plan · Version {new_version}",
+        content=_revised_operating_plan_content(current),
+        status=Deliverable.Status.READY,
+        is_synthetic=True,
+    )
+    revision_work.status = WorkItem.Status.DONE
+    revision_work.save(update_fields=["status", "updated_at"])
+    locked.status = CustomerRequest.Status.DELIVERED
+    locked.save(update_fields=["status", "updated_at"])
+    AuditEvent.objects.create(
+        event_type="synthetic-deliverable-revised",
+        actor="system:customer-zero-revision-simulator",
+        payload={
+            "customer_request_id": str(locked.pk),
+            "previous_deliverable_id": str(current.pk),
+            "deliverable_id": str(revised.pk),
+            "version": new_version,
+            "synthetic": True,
+        },
+    )
+    return revised
 
 
 @dataclass(frozen=True)

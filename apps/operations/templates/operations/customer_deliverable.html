@@ -1,7 +1,7 @@
 {% extends "operations/customer_base.html" %}
 {% block title %}Deliverable{% endblock %}
 {% block content %}
-<div class="eyebrow">Customer Zero · Step 5 of 5</div><h1>{{ deliverable.title }}</h1>
+<div class="eyebrow">Customer Zero · Step 5 of 5 · Version {{ deliverable.version }}</div><h1>{{ deliverable.title }}</h1>
 <div class="steps"><div class="step active">✓ Request</div><div class="step active">✓ Offer</div><div class="step active">✓ Test payment</div><div class="step active">✓ Work</div><div class="step active">5 Deliverable</div></div>
 <p>Status: <span class="status">{{ deliverable.get_status_display }}</span></p>
 <article class="deliverable">{{ deliverable.content }}</article>
@@ -10,6 +10,10 @@
   <label>Decision</label>{{ form.decision.errors }}<div class="review-options">{{ form.decision }}</div>
   {{ form.revision_note.label_tag }}{{ form.revision_note.errors }}{{ form.revision_note }}
   <button type="submit">Submit review</button></form>
-{% elif deliverable.status == "revision_requested" %}<section class="card"><h2>Revision requested</h2><p>{{ deliverable.revision_note }}</p></section>
+{% elif deliverable.status == "revision_requested" %}<section class="card"><h2>Revision requested</h2><p>{{ deliverable.revision_note }}</p>
+  <p class="warning">A revision work item is ready. This button simulates bounded internal delivery work; it performs no external action.</p>
+  <form method="post" action="{% url 'customer-simulate-revision' customer_request.pk %}">{% csrf_token %}<button type="submit">Simulate revision work →</button></form>
+</section>
 {% else %}<section class="card"><h2>Accepted</h2><p>This synthetic engagement is complete. The decision is recorded in the audit history.</p><a class="button secondary" href="/company/">View company update</a></section>{% endif %}
+{% if deliverable_versions|length > 1 %}<section class="card"><h2>Version history</h2><ul class="clean">{% for item in deliverable_versions %}<li>Version {{ item.version }} · {{ item.get_status_display }}{% if item.is_current %} · <span class="status">Current</span>{% endif %}</li>{% endfor %}</ul></section>{% endif %}
 {% endblock %}

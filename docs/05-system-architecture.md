@@ -105,7 +105,9 @@ flowchart LR
     E --> D["Local operating-plan deliverable"]
     D --> V{"Customer review"}
     V -->|Accept| C["Complete"]
-    V -->|Revise| X["Revision requested"]
+    V -->|Revise| X["Revision work item"]
+    X --> D2["Next deliverable version"]
+    D2 --> V
     P -. no provider or card data .-> N["External execution disabled"]
 ```
 
@@ -113,6 +115,10 @@ Pricing and artifact generation are deterministic domain-service behavior. Custo
 input is untrusted data, not an instruction channel. Real payment or customer mode
 is outside this boundary and requires authentication, authorization, verified
 webhooks, reconciliation, legal, tax, privacy, refund, and operational controls.
+
+Deliverables use a per-request version number and a database-enforced single-current
+constraint. Prior versions remain authoritative history; revisions create new rows
+rather than overwriting reviewed artifacts.
 
 ## Workflow state
 

@@ -87,7 +87,7 @@ def test_customer_can_accept_deliverable(client, synthetic_scenario):
     assert response.status_code == 302
     customer_request.refresh_from_db()
     assert customer_request.status == CustomerRequest.Status.COMPLETED
-    assert customer_request.deliverable.status == Deliverable.Status.ACCEPTED
+    assert customer_request.deliverables.get(is_current=True).status == Deliverable.Status.ACCEPTED
 
     dashboard = client.get(reverse("company-status"))
     content = dashboard.content.decode()
@@ -112,6 +112,56 @@ def test_revision_requires_a_note(client, synthetic_scenario):
     assert "Describe the requested revision" in response.content.decode()
     customer_request.refresh_from_db()
     assert customer_request.status == CustomerRequest.Status.DELIVERED
+
+
+@pytest.mark.django_db
+def test_revision_creates_work_and_versioned_deliverable(client, synthetic_scenario):
+    submit_request(client)
+    customer_request = CustomerRequest.objects.latest("created_at")
+    client.post(reverse("customer-accept-offer", args=[customer_request.pk]))
+    client.post(reverse("customer-simulate-payment", args=[customer_request.pk]))
+
+    response = client.post(
+        reverse("customer-deliverable", args=[customer_request.pk]),
+        {
+            "decision": "revise",
+            "revision_note": (
+                "Add named owners, measurable success targets, and a weekly cash-flow review."
+            ),
+        },
+    )
+    assert response.status_code == 302
+    revision_work = WorkItem.objects.get(key__startswith="revision-")
+    assert revision_work.status == WorkItem.Status.READY
+    assert customer_request.deliverables.get(is_current=True).version == 1
+
+    response = client.post(reverse("customer-simulate-revision", args=[customer_request.pk]))
+
+    assert response.status_code == 302
+    customer_request.refresh_from_db()
+    assert customer_request.status == CustomerRequest.Status.DELIVERED
+    assert customer_request.deliverables.count() == 2
+    original = customer_request.deliverables.get(version=1)
+    revised = customer_request.deliverables.get(version=2)
+    assert not original.is_current
+    assert original.status == Deliverable.Status.REVISION_REQUESTED
+    assert revised.is_current
+    assert revised.status == Deliverable.Status.READY
+    assert "Named owners" in revised.content
+    assert "Measurable success targets" in revised.content
+    assert "Weekly cash-flow review" in revised.content
+    revision_work.refresh_from_db()
+    assert revision_work.status == WorkItem.Status.DONE
+    assert AuditEvent.objects.filter(event_type="synthetic-deliverable-revised").count() == 1
+
+    response = client.post(
+        reverse("customer-deliverable", args=[customer_request.pk]),
+        {"decision": "accept", "revision_note": ""},
+    )
+    customer_request.refresh_from_db()
+    revised.refresh_from_db()
+    assert customer_request.status == CustomerRequest.Status.COMPLETED
+    assert revised.status == Deliverable.Status.ACCEPTED
 
 
 @pytest.mark.django_db

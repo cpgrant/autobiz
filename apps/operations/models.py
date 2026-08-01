@@ -421,14 +421,29 @@ class Deliverable(TimestampedModel):
         ACCEPTED = "accepted", "Accepted"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    customer_request = models.OneToOneField(
-        CustomerRequest, on_delete=models.PROTECT, related_name="deliverable"
+    customer_request = models.ForeignKey(
+        CustomerRequest, on_delete=models.PROTECT, related_name="deliverables"
     )
+    version = models.PositiveSmallIntegerField(default=1)
+    is_current = models.BooleanField(default=True)
     title = models.CharField(max_length=240)
     content = models.TextField()
     status = models.CharField(max_length=30, choices=Status, default=Status.READY)
     revision_note = models.TextField(blank=True)
     is_synthetic = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-version"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["customer_request", "version"], name="unique_deliverable_version"
+            ),
+            models.UniqueConstraint(
+                fields=["customer_request"],
+                condition=models.Q(is_current=True),
+                name="one_current_deliverable_per_request",
+            ),
+        ]
 
     def __str__(self) -> str:
         return self.title
