@@ -5,7 +5,66 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from .models import Approval, AuditEvent
+from .models import ActionProposal, Approval, AuditEvent, Company
+
+
+@dataclass(frozen=True)
+class AuthorityRule:
+    level: int
+    requires_approval: bool
+    external: bool = False
+    executor_available: bool = True
+
+
+AUTHORITY_RULES = {
+    "read-local-records": AuthorityRule(ActionProposal.AuthorityLevel.OBSERVE, False),
+    "calculate-metrics": AuthorityRule(ActionProposal.AuthorityLevel.OBSERVE, False),
+    "prioritize-work": AuthorityRule(ActionProposal.AuthorityLevel.DRAFT, False),
+    "draft-plan": AuthorityRule(ActionProposal.AuthorityLevel.DRAFT, False),
+    "draft-report": AuthorityRule(ActionProposal.AuthorityLevel.DRAFT, False),
+    "create-simulated-task": AuthorityRule(ActionProposal.AuthorityLevel.BOUNDED_EXECUTE, False),
+    "simulate-reversible-outcome": AuthorityRule(
+        ActionProposal.AuthorityLevel.BOUNDED_EXECUTE, False
+    ),
+    "send-communication": AuthorityRule(
+        ActionProposal.AuthorityLevel.HUMAN_APPROVAL, True, True, False
+    ),
+    "spend-money": AuthorityRule(ActionProposal.AuthorityLevel.HUMAN_APPROVAL, True, True, False),
+    "change-price": AuthorityRule(ActionProposal.AuthorityLevel.HUMAN_APPROVAL, True, True, False),
+    "make-contractual-commitment": AuthorityRule(
+        ActionProposal.AuthorityLevel.PROHIBITED, True, True, False
+    ),
+    "delete-record": AuthorityRule(
+        ActionProposal.AuthorityLevel.HUMAN_APPROVAL, True, False, False
+    ),
+    "access-external-system": AuthorityRule(
+        ActionProposal.AuthorityLevel.PROHIBITED, True, True, False
+    ),
+    "publish-content": AuthorityRule(
+        ActionProposal.AuthorityLevel.HUMAN_APPROVAL, True, True, False
+    ),
+}
+
+
+def authority_rule_for(action_type: str) -> AuthorityRule:
+    """Return the deterministic authority rule; unknown actions fail closed."""
+    return AUTHORITY_RULES.get(
+        action_type,
+        AuthorityRule(ActionProposal.AuthorityLevel.PROHIBITED, True, False, False),
+    )
+
+
+def can_execute_action(*, company: Company, proposal: ActionProposal) -> bool:
+    """Evaluate execution independently from approval state and fail closed."""
+    if proposal.authority_level == ActionProposal.AuthorityLevel.PROHIBITED:
+        return False
+    if not proposal.executor_available:
+        return False
+    if proposal.is_external and not company.external_execution_enabled:
+        return False
+    if proposal.requires_approval:
+        return bool(proposal.approval and proposal.approval.status == Approval.Status.APPROVED)
+    return proposal.authority_level <= ActionProposal.AuthorityLevel.BOUNDED_EXECUTE
 
 
 @dataclass(frozen=True)

@@ -48,6 +48,11 @@ While validation is deferred, work may continue on:
 - generic approval, audit, and permission primitives; and
 - reversible prototypes that do not assert customer requirements.
 
+Customer Zero is one such reversible prototype. It uses only clearly marked
+synthetic records, keeps external execution disabled, and measures control-system
+behavior rather than customer demand. Its scope is defined in
+[Customer Zero experiment](13-customer-zero.md).
+
 Work must not continue on:
 
 - product-specific AI workflows or prompts;

@@ -1,19 +1,41 @@
 from django.contrib import admin
 
-from .models import Approval, AuditEvent, Customer, Engagement, Product, WorkflowRun
+from .models import (
+    ActionProposal,
+    Approval,
+    AuditEvent,
+    Company,
+    Customer,
+    Engagement,
+    FinancialEntry,
+    Goal,
+    Metric,
+    OperatingCycle,
+    Opportunity,
+    Product,
+    Risk,
+    WorkflowRun,
+    WorkItem,
+)
+
+
+@admin.register(Company)
+class CompanyAdmin(admin.ModelAdmin):
+    list_display = ("name", "is_synthetic", "external_execution_enabled", "updated_at")
+    search_fields = ("name", "key")
 
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
-    list_display = ("name", "status", "primary_email", "updated_at")
-    list_filter = ("status",)
+    list_display = ("name", "status", "is_synthetic", "primary_email", "updated_at")
+    list_filter = ("status", "is_synthetic")
     search_fields = ("name", "primary_email")
 
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "key", "status", "updated_at")
-    list_filter = ("status",)
+    list_display = ("name", "key", "status", "is_synthetic", "updated_at")
+    list_filter = ("status", "is_synthetic")
     search_fields = ("name", "key")
 
 
@@ -54,3 +76,57 @@ class AuditEventAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(Goal)
+class GoalAdmin(admin.ModelAdmin):
+    list_display = ("name", "status", "current_value", "target_value", "unit")
+    list_filter = ("status", "is_synthetic")
+
+
+@admin.register(Opportunity)
+class OpportunityAdmin(admin.ModelAdmin):
+    list_display = ("customer", "product", "stage", "estimated_value_eur", "is_synthetic")
+    list_filter = ("stage", "product", "is_synthetic")
+
+
+@admin.register(WorkItem)
+class WorkItemAdmin(admin.ModelAdmin):
+    list_display = ("title", "function", "priority", "status", "requires_approval")
+    list_filter = ("function", "status", "requires_approval")
+
+
+@admin.register(FinancialEntry)
+class FinancialEntryAdmin(admin.ModelAdmin):
+    list_display = ("description", "entry_type", "amount_eur", "occurred_on", "is_synthetic")
+    list_filter = ("entry_type", "is_synthetic")
+
+
+@admin.register(Risk)
+class RiskAdmin(admin.ModelAdmin):
+    list_display = ("title", "severity", "status", "is_synthetic")
+    list_filter = ("severity", "status")
+
+
+@admin.register(Metric)
+class MetricAdmin(admin.ModelAdmin):
+    list_display = ("name", "value", "target_value", "unit", "is_synthetic")
+
+
+@admin.register(OperatingCycle)
+class OperatingCycleAdmin(admin.ModelAdmin):
+    list_display = ("company", "operating_date", "status", "is_synthetic")
+    list_filter = ("status",)
+
+
+@admin.register(ActionProposal)
+class ActionProposalAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "action_type",
+        "authority_level",
+        "status",
+        "requires_approval",
+        "executor_available",
+    )
+    list_filter = ("authority_level", "status", "requires_approval", "is_external")

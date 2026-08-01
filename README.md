@@ -32,6 +32,7 @@ remain gated. See [Required validation gate](docs/09-required-validation-gate.md
 - [Required validation gate](docs/09-required-validation-gate.md)
 - [Foundation backlog](docs/10-foundation-backlog.md)
 - [Local operator runbook](docs/11-operator-runbook.md)
+- [Customer Zero experiment](docs/13-customer-zero.md)
 - [Interview candidate register](planning/interview-candidates.md)
 
 ## Planning workbooks

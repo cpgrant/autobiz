@@ -100,3 +100,12 @@ As of 2026-07-28, the generic foundation includes:
 
 These controls are generic primitives. They do not authorize a product workflow or
 clear the required market-validation gate.
+
+## Customer Zero enforcement
+
+The Customer Zero experiment implements action-type authority rules in deterministic
+application code. Approval does not itself provide execution capability: an action
+must also have an available executor, and external execution must be enabled at the
+company level. During Customer Zero, external execution is always disabled and
+unknown action types fail closed as prohibited. The complete scenario matrix is in
+[Customer Zero experiment](13-customer-zero.md).

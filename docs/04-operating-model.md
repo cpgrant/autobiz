@@ -93,3 +93,20 @@ No separate HR, procurement, public relations, investor relations, research,
 security, data-science, internal-IT, international-operations, or partnership
 department. Essential duties are founder-owned, embedded in another function, or
 outsourced until scale justifies specialization.
+
+## Customer Zero functional view
+
+For the local synthetic experiment, the existing responsibilities are grouped into
+five simpler operating views without changing accountability or creating separate
+departments:
+
+| Customer Zero function | Existing responsibilities represented |
+|---|---|
+| Direction | Leadership, goals, priorities, and decisions |
+| Growth | Marketing, sales, synthetic leads, and offers |
+| Delivery | Service delivery, projects, tasks, and quality |
+| Finance | Finance, prices, costs, cash, and forecasts |
+| Operations | Approvals, risks, audits, and reporting |
+
+The experiment and daily loop are specified in
+[Customer Zero experiment](13-customer-zero.md).
