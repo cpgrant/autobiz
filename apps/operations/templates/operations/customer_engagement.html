@@ -1,0 +1,9 @@
+{% extends "operations/customer_base.html" %}
+{% block title %}Engagement{% endblock %}
+{% block content %}
+<div class="eyebrow">Customer Zero · Step 4 of 5</div><h1>Your work is ready</h1>
+<div class="steps"><div class="step active">✓ Request</div><div class="step active">✓ Offer</div><div class="step active">✓ Test payment</div><div class="step active">4 Work</div><div class="step">5 Deliverable</div></div>
+<div class="grid"><div class="stat"><span>Engagement</span><strong>{{ engagement.get_status_display }}</strong></div><div class="stat"><span>Payment</span><strong class="status">Synthetic paid</strong></div></div>
+<section class="card"><h2>Delivery work</h2><ul class="clean">{% for item in work_items %}<li><span class="status">✓</span> {{ item.title }} <small>· {{ item.get_status_display }}</small></li>{% endfor %}</ul>
+<a class="button" href="{% url 'customer-deliverable' customer_request.pk %}">Review deliverable →</a></section>
+{% endblock %}

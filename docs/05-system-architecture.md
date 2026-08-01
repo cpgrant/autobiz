@@ -90,8 +90,29 @@ erDiagram
     }
 ```
 
-The initial scaffold implements a smaller subset: Customer, Product, Engagement,
-WorkflowRun, Approval, and AuditEvent.
+The implemented Customer Zero boundary includes company state, goals, opportunities,
+work, finance, risk, metrics, operating cycles, action proposals, approvals, and
+append-only audit events. The synthetic customer journey adds CustomerRequest,
+Offer, SyntheticPayment, and Deliverable while keeping PostgreSQL authoritative.
+
+## Synthetic customer journey boundary
+
+```mermaid
+flowchart LR
+    R["Synthetic request"] --> O["Fixed Establish offer"]
+    O --> P["Internal payment simulation"]
+    P --> E["Engagement and work items"]
+    E --> D["Local operating-plan deliverable"]
+    D --> V{"Customer review"}
+    V -->|Accept| C["Complete"]
+    V -->|Revise| X["Revision requested"]
+    P -. no provider or card data .-> N["External execution disabled"]
+```
+
+Pricing and artifact generation are deterministic domain-service behavior. Customer
+input is untrusted data, not an instruction channel. Real payment or customer mode
+is outside this boundary and requires authentication, authorization, verified
+webhooks, reconciliation, legal, tax, privacy, refund, and operational controls.
 
 ## Workflow state
 

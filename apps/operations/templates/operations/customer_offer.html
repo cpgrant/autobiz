@@ -1,0 +1,14 @@
+{% extends "operations/customer_base.html" %}
+{% block title %}Offer{% endblock %}
+{% block content %}
+<div class="eyebrow">Customer Zero · Step 2 of 5</div>
+<h1>Your synthetic offer</h1>
+<div class="steps"><div class="step active">✓ Request</div><div class="step active">2 Offer</div><div class="step">3 Test payment</div><div class="step">4 Work</div><div class="step">5 Deliverable</div></div>
+<section class="card">
+  <h2>{{ offer.title }}</h2><p>{{ offer.scope }}</p>
+  <div class="price">€{{ offer.price_eur }}</div><p>One-time synthetic price · no tax invoice · no real commitment</p>
+  <h2>Your requested outcome</h2><p>{{ customer_request.desired_outcome }}</p>
+  {% if offer.status == "proposed" %}<form method="post" action="{% url 'customer-accept-offer' customer_request.pk %}">{% csrf_token %}<button type="submit">Accept synthetic offer →</button></form>
+  {% else %}<a class="button" href="{% url 'customer-payment' customer_request.pk %}">Continue to test payment →</a>{% endif %}
+</section>
+{% endblock %}

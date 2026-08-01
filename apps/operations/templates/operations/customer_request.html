@@ -1,0 +1,15 @@
+{% extends "operations/customer_base.html" %}
+{% block title %}Request{% endblock %}
+{% block content %}
+<div class="eyebrow">Customer Zero · Step 1 of 5</div>
+<h1>What should Autobiz establish?</h1>
+<p class="lead">Act as the customer and submit one bounded request. Everything in this portal is local, synthetic, and incapable of sending or charging real money.</p>
+<div class="steps"><div class="step active">1 Request</div><div class="step">2 Offer</div><div class="step">3 Test payment</div><div class="step">4 Work</div><div class="step">5 Deliverable</div></div>
+<form method="post" class="card">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  {% for field in form %}<div>{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+  <p class="warning">Use synthetic details only. Free text is treated as untrusted customer input and cannot change prices, authority, or system policy.</p>
+  <button type="submit">Create synthetic request →</button>
+</form>
+{% endblock %}

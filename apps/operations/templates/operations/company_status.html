@@ -21,6 +21,7 @@
     .wide { grid-column: span 8; }
     .narrow { grid-column: span 4; }
     .half { grid-column: span 6; }
+    .full { grid-column: span 12; }
     .value { display: block; font-size: 31px; font-weight: 750; letter-spacing: -.04em; color: var(--ink); }
     .label { color: var(--muted); font-size: 13px; }
     table { width: 100%; border-collapse: collapse; }
@@ -30,20 +31,28 @@
     .pill { display: inline-block; border: 1px solid var(--line); border-radius: 99px; padding: 3px 8px; font-size: 12px; }
     .approval { color: var(--amber); } .blocked { color: var(--red); } .safe { color: var(--accent); }
     .report { border-left: 3px solid var(--accent); padding-left: 14px; color: var(--ink); }
-    @media (max-width: 800px) { .metric, .wide, .narrow, .half { grid-column: span 12; } header { flex-direction: column; } }
+    a { color: var(--accent); text-decoration: none; }
+    @media (max-width: 800px) { .metric, .wide, .narrow, .half, .full { grid-column: span 12; } header { flex-direction: column; } }
   </style>
 </head>
 <body>
 <main>
   <header>
     <div><div class="eyebrow">Customer Zero · local operating system</div><h1>{{ company.name }}</h1><p>{{ company.mission }}</p></div>
-    <span class="badge">● Synthetic data only</span>
+    <div><span class="badge">● Synthetic data only</span><p style="margin-top:14px"><a href="/customer/request/" style="color:var(--accent)">Act as a synthetic customer →</a></p></div>
   </header>
   <section class="grid" aria-label="Company metrics">
     <article class="card metric"><span class="value">{{ company.customers.count }}</span><span class="label">simulated parties</span></article>
     <article class="card metric"><span class="value">{{ opportunities.count }}</span><span class="label">open opportunities</span></article>
     <article class="card metric"><span class="value">€{{ revenue }}</span><span class="label">synthetic revenue</span></article>
     <article class="card metric"><span class="value">€{{ costs }}</span><span class="label">synthetic costs</span></article>
+
+    <article class="card full">
+      <h2>Recent synthetic customer journeys</h2>
+      {% if recent_requests %}<table><thead><tr><th>Customer</th><th>Service</th><th>Status</th><th>Result</th></tr></thead><tbody>
+      {% for item in recent_requests %}<tr><td>{{ item.customer.name }}</td><td>{{ item.product.name }}</td><td><span class="pill">{{ item.get_status_display }}</span></td><td>{% if item.engagement_id %}<a href="{% url 'customer-engagement' item.pk %}">View work and deliverable →</a>{% else %}<a href="{% url 'customer-offer' item.pk %}">Continue journey →</a>{% endif %}</td></tr>{% endfor %}
+      </tbody></table>{% else %}<p>No portal requests yet. <a href="/customer/request/">Start the first journey →</a></p>{% endif %}
+    </article>
 
     <article class="card wide">
       <h2>Priority work</h2>

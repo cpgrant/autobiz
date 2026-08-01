@@ -1,0 +1,11 @@
+{% extends "operations/customer_base.html" %}
+{% block title %}Deliverable{% endblock %}
+{% block content %}
+<div class="eyebrow">Customer Zero · Step 5 of 5</div><h1>{{ deliverable.title }}</h1>
+<div class="steps"><div class="step active">✓ Request</div><div class="step active">✓ Offer</div><div class="step active">✓ Test payment</div><div class="step active">✓ Work</div><div class="step active">5 Deliverable</div></div>
+<p>Status: <span class="status">{{ deliverable.get_status_display }}</span></p>
+<article class="deliverable">{{ deliverable.content }}</article>
+{% if deliverable.status == "ready" %}<form method="post" class="card">{% csrf_token %}<h2>Customer review</h2>{{ form.as_p }}<button type="submit">Submit review</button></form>
+{% elif deliverable.status == "revision_requested" %}<section class="card"><h2>Revision requested</h2><p>{{ deliverable.revision_note }}</p></section>
+{% else %}<section class="card"><h2>Accepted</h2><p>This synthetic engagement is complete. The decision is recorded in the audit history.</p><a class="button secondary" href="/company/">View company update</a></section>{% endif %}
+{% endblock %}

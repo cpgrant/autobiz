@@ -65,6 +65,36 @@ The scenario is loaded by the idempotent command:
 uv run python manage.py load_customer_zero
 ```
 
+## Synthetic customer journey
+
+The local portal at `/customer/request/` lets the founder act as a synthetic
+customer and exercise one bounded Establish journey:
+
+```text
+Submit request → review fixed offer → accept → simulate payment
+→ inspect completed work → review deliverable → accept or request revision
+```
+
+The price is deterministically fixed at €1,200. The payment simulator asks for no
+card details, connects to no payment provider, and records only synthetic database
+entries. Successful simulation creates an engagement, linked delivery work, revenue
+entry, operating-plan deliverable, and append-only audit events.
+
+Customer free text is untrusted content. It can appear in an escaped deliverable but
+cannot modify price, scope, authority policy, system instructions, or execution
+capability. UUID journey links are sufficient only for this local synthetic mode;
+real customers will require authentication and authorization.
+
+### Journey evidence
+
+| Request | Payment boundary |
+|---|---|
+| ![Synthetic customer request](images/synthetic-customer-request.png) | ![Synthetic test payment](images/synthetic-test-payment.png) |
+
+![Synthetic operating-plan deliverable](images/synthetic-operating-plan-deliverable.png)
+
+![Company state after the completed customer journey](images/synthetic-customer-company-update.png)
+
 ## Authority matrix
 
 | Action | Level | Initial behavior |
@@ -126,6 +156,13 @@ zero unauthorized external actions.
 - added the Customer Zero operating records and status view;
 - added an idempotent synthetic scenario loader;
 - kept external execution disabled and unknown actions fail-closed.
+
+### 2026-08-01 — Synthetic Establish journey
+
+- added request, offer, simulated-payment, engagement, and deliverable states;
+- fixed the synthetic Establish price at €1,200 in deterministic application logic;
+- generated a bounded local operating-plan deliverable without AI or external calls;
+- added accept and revision-request review paths with audit events.
 
 ### Verification evidence
 

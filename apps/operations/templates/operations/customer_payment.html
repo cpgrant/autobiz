@@ -1,0 +1,11 @@
+{% extends "operations/customer_base.html" %}
+{% block title %}Test payment{% endblock %}
+{% block content %}
+<div class="eyebrow">Customer Zero · Step 3 of 5</div><h1>Simulate payment</h1>
+<div class="steps"><div class="step active">✓ Request</div><div class="step active">✓ Offer</div><div class="step active">3 Test payment</div><div class="step">4 Work</div><div class="step">5 Deliverable</div></div>
+<section class="card">
+  <p class="warning"><strong>No card is requested and no money moves.</strong> This creates a database-only synthetic payment of €{{ offer.price_eur }}.</p>
+  <div class="grid"><div class="stat"><span>Service</span><strong>Establish</strong></div><div class="stat"><span>Test total</span><strong>€{{ offer.price_eur }}</strong></div></div>
+  <form method="post" action="{% url 'customer-simulate-payment' customer_request.pk %}">{% csrf_token %}<button type="submit">Pay with synthetic money →</button></form>
+</section>
+{% endblock %}

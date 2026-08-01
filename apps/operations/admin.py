@@ -6,14 +6,18 @@ from .models import (
     AuditEvent,
     Company,
     Customer,
+    CustomerRequest,
+    Deliverable,
     Engagement,
     FinancialEntry,
     Goal,
     Metric,
+    Offer,
     OperatingCycle,
     Opportunity,
     Product,
     Risk,
+    SyntheticPayment,
     WorkflowRun,
     WorkItem,
 )
@@ -130,3 +134,32 @@ class ActionProposalAdmin(admin.ModelAdmin):
         "executor_available",
     )
     list_filter = ("authority_level", "status", "requires_approval", "is_external")
+
+
+@admin.register(CustomerRequest)
+class CustomerRequestAdmin(admin.ModelAdmin):
+    list_display = ("customer", "product", "status", "is_synthetic", "created_at")
+    list_filter = ("status", "product", "is_synthetic")
+    search_fields = ("customer__name", "request_text", "desired_outcome")
+
+
+@admin.register(Offer)
+class OfferAdmin(admin.ModelAdmin):
+    list_display = ("title", "customer_request", "price_eur", "status", "is_synthetic")
+    list_filter = ("status", "is_synthetic")
+
+
+@admin.register(SyntheticPayment)
+class SyntheticPaymentAdmin(admin.ModelAdmin):
+    list_display = ("offer", "amount_eur", "status", "provider", "paid_at")
+    list_filter = ("status", "provider", "is_synthetic")
+    readonly_fields = ("offer", "amount_eur", "status", "paid_at", "provider", "external_reference")
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(Deliverable)
+class DeliverableAdmin(admin.ModelAdmin):
+    list_display = ("title", "customer_request", "status", "is_synthetic", "updated_at")
+    list_filter = ("status", "is_synthetic")

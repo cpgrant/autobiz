@@ -2,9 +2,25 @@ from django.db import connections
 from django.db.models import Sum
 from django.db.utils import OperationalError
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
-from .models import Company, FinancialEntry
+from .forms import DeliverableReviewForm, SyntheticCustomerRequestForm
+from .models import (
+    Company,
+    CustomerRequest,
+    Deliverable,
+    FinancialEntry,
+    Offer,
+    Opportunity,
+    SyntheticPayment,
+)
+from .services import (
+    accept_synthetic_offer,
+    review_deliverable,
+    simulate_payment_and_delivery,
+    submit_synthetic_request,
+)
 
 
 def home(request):
@@ -12,7 +28,8 @@ def home(request):
         """<!doctype html>
 <html lang=\"en\"><head><meta charset=\"utf-8\"><title>Autobiz</title></head>
 <body><main><h1>Autobiz</h1><p>Controlled business foundation is running.</p>
-<ul><li><a href=\"/company/\">Customer Zero company status</a></li>
+<ul><li><a href=\"/customer/request/\">Start synthetic customer journey</a></li>
+<li><a href=\"/company/\">Customer Zero company status</a></li>
 <li><a href=\"/health/\">Health</a></li><li><a href=\"/ready/\">Readiness</a></li>
 <li><a href=\"/admin/\">Django admin</a></li></ul></main></body></html>"""
     )
@@ -37,6 +54,9 @@ def readiness(request):
 
 def company_status(request):
     company = get_object_or_404(Company, key="autobiz")
+    open_opportunities = company.opportunities.exclude(
+        stage__in=[Opportunity.Stage.WON, Opportunity.Stage.LOST]
+    ).select_related("customer", "product")
     revenue = (
         company.financial_entries.filter(entry_type=FinancialEntry.EntryType.REVENUE).aggregate(
             total=Sum("amount_eur")
@@ -56,7 +76,8 @@ def company_status(request):
             "company": company,
             "goals": company.goals.all(),
             "metrics": company.metrics.all(),
-            "opportunities": company.opportunities.select_related("customer", "product"),
+            "opportunities": open_opportunities,
+            "recent_requests": company.customer_requests.select_related("customer", "product")[:5],
             "work_items": company.work_items.all()[:6],
             "risks": company.risks.filter(status="open"),
             "proposals": company.action_proposals.all(),
@@ -64,4 +85,96 @@ def company_status(request):
             "revenue": revenue,
             "costs": costs,
         },
+    )
+
+
+def customer_request(request):
+    form = SyntheticCustomerRequestForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        result = submit_synthetic_request(
+            customer_name=form.cleaned_data["customer_name"],
+            email=form.cleaned_data["email"],
+            request_text=form.cleaned_data["request_text"],
+            desired_outcome=form.cleaned_data["desired_outcome"],
+        )
+        return redirect("customer-offer", request_id=result.customer_request.pk)
+    return render(request, "operations/customer_request.html", {"form": form})
+
+
+def _synthetic_request(request_id):
+    return get_object_or_404(
+        CustomerRequest.objects.select_related("company", "customer", "product", "engagement"),
+        pk=request_id,
+        is_synthetic=True,
+        company__key="autobiz",
+    )
+
+
+def customer_offer(request, request_id):
+    customer_request_record = _synthetic_request(request_id)
+    return render(
+        request,
+        "operations/customer_offer.html",
+        {"customer_request": customer_request_record, "offer": customer_request_record.offer},
+    )
+
+
+@require_POST
+def customer_accept_offer(request, request_id):
+    customer_request_record = _synthetic_request(request_id)
+    accept_synthetic_offer(customer_request=customer_request_record)
+    return redirect("customer-payment", request_id=request_id)
+
+
+def customer_payment(request, request_id):
+    customer_request_record = _synthetic_request(request_id)
+    if customer_request_record.offer.status != Offer.Status.ACCEPTED:
+        return redirect("customer-offer", request_id=request_id)
+    if SyntheticPayment.objects.filter(offer=customer_request_record.offer).exists():
+        return redirect("customer-engagement", request_id=request_id)
+    return render(
+        request,
+        "operations/customer_payment.html",
+        {"customer_request": customer_request_record, "offer": customer_request_record.offer},
+    )
+
+
+@require_POST
+def customer_simulate_payment(request, request_id):
+    customer_request_record = _synthetic_request(request_id)
+    simulate_payment_and_delivery(customer_request=customer_request_record)
+    return redirect("customer-engagement", request_id=request_id)
+
+
+def customer_engagement(request, request_id):
+    customer_request_record = _synthetic_request(request_id)
+    if customer_request_record.engagement_id is None:
+        return redirect("customer-payment", request_id=request_id)
+    return render(
+        request,
+        "operations/customer_engagement.html",
+        {
+            "customer_request": customer_request_record,
+            "engagement": customer_request_record.engagement,
+            "work_items": customer_request_record.engagement.work_items.all(),
+            "deliverable": customer_request_record.deliverable,
+        },
+    )
+
+
+def customer_deliverable(request, request_id):
+    customer_request_record = _synthetic_request(request_id)
+    artifact = get_object_or_404(Deliverable, customer_request=customer_request_record)
+    form = DeliverableReviewForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        review_deliverable(
+            customer_request=customer_request_record,
+            decision=form.cleaned_data["decision"],
+            revision_note=form.cleaned_data["revision_note"],
+        )
+        return redirect("customer-deliverable", request_id=request_id)
+    return render(
+        request,
+        "operations/customer_deliverable.html",
+        {"customer_request": customer_request_record, "deliverable": artifact, "form": form},
     )

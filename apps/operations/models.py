@@ -167,6 +167,13 @@ class WorkItem(TimestampedModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="work_items")
+    engagement = models.ForeignKey(
+        Engagement,
+        on_delete=models.PROTECT,
+        related_name="work_items",
+        null=True,
+        blank=True,
+    )
     key = models.SlugField()
     title = models.CharField(max_length=240)
     function = models.CharField(max_length=20, choices=Function)
@@ -330,6 +337,98 @@ class ActionProposal(TimestampedModel):
         constraints = [
             models.UniqueConstraint(fields=["company", "key"], name="unique_action_proposal_key")
         ]
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class CustomerRequest(TimestampedModel):
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Submitted"
+        OFFERED = "offered", "Offer ready"
+        ACCEPTED = "accepted", "Offer accepted"
+        PAID = "paid", "Synthetic payment recorded"
+        IN_DELIVERY = "in_delivery", "In delivery"
+        DELIVERED = "delivered", "Delivered"
+        REVISION_REQUESTED = "revision_requested", "Revision requested"
+        COMPLETED = "completed", "Completed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="customer_requests")
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="requests")
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="customer_requests")
+    engagement = models.OneToOneField(
+        Engagement,
+        on_delete=models.PROTECT,
+        related_name="customer_request",
+        null=True,
+        blank=True,
+    )
+    request_text = models.TextField()
+    desired_outcome = models.TextField()
+    status = models.CharField(max_length=30, choices=Status, default=Status.SUBMITTED)
+    is_synthetic = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.customer} — {self.product} request"
+
+
+class Offer(TimestampedModel):
+    class Status(models.TextChoices):
+        PROPOSED = "proposed", "Proposed"
+        ACCEPTED = "accepted", "Accepted"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer_request = models.OneToOneField(
+        CustomerRequest, on_delete=models.PROTECT, related_name="offer"
+    )
+    title = models.CharField(max_length=240)
+    scope = models.TextField()
+    price_eur = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(max_length=20, choices=Status, default=Status.PROPOSED)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    is_synthetic = models.BooleanField(default=True)
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class SyntheticPayment(TimestampedModel):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        PAID = "paid", "Paid"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    offer = models.OneToOneField(Offer, on_delete=models.PROTECT, related_name="payment")
+    amount_eur = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(max_length=20, choices=Status, default=Status.PENDING)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    provider = models.CharField(max_length=40, default="internal-simulation")
+    external_reference = models.CharField(max_length=200, blank=True)
+    is_synthetic = models.BooleanField(default=True)
+
+    def __str__(self) -> str:
+        return f"Synthetic payment €{self.amount_eur} ({self.status})"
+
+
+class Deliverable(TimestampedModel):
+    class Status(models.TextChoices):
+        READY = "ready", "Ready for review"
+        REVISION_REQUESTED = "revision_requested", "Revision requested"
+        ACCEPTED = "accepted", "Accepted"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    customer_request = models.OneToOneField(
+        CustomerRequest, on_delete=models.PROTECT, related_name="deliverable"
+    )
+    title = models.CharField(max_length=240)
+    content = models.TextField()
+    status = models.CharField(max_length=30, choices=Status, default=Status.READY)
+    revision_note = models.TextField(blank=True)
+    is_synthetic = models.BooleanField(default=True)
 
     def __str__(self) -> str:
         return self.title

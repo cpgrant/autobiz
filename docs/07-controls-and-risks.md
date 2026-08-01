@@ -109,3 +109,10 @@ must also have an available executor, and external execution must be enabled at 
 company level. During Customer Zero, external execution is always disabled and
 unknown action types fail closed as prohibited. The complete scenario matrix is in
 [Customer Zero experiment](13-customer-zero.md).
+
+The synthetic customer portal accepts only local test records. It requests no card
+details and has no payment-provider integration. Customer-entered text is treated as
+untrusted data and rendered with escaping. Journey links are intentionally unauthenticated
+only while the system is local and synthetic; authentication, authorization, verified
+payment webhooks, reconciliation, tax, contractual, privacy, and refund controls are
+required before any real-customer or live-payment mode.
