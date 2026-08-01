@@ -1,6 +1,6 @@
 # Customer Zero experiment
 
-**Status:** In progress — initiated 2026-08-01
+**Status:** Days 1–7 complete; controlled-player phase next — initiated 2026-08-01
 
 **Owner:** Founder/operator
 
@@ -128,16 +128,33 @@ Unknown action types fail closed at level 4.
 
 ### Days 1–3 — Model the company
 
-- document this experiment and its authority boundary;
-- define company, goal, opportunity, work, finance, risk, metric, cycle, and
+- [x] document this experiment and its authority boundary;
+- [x] define company, goal, opportunity, work, finance, risk, metric, cycle, and
   proposal records;
-- load and verify the Day 0 scenario.
+- [x] load and verify the Day 0 scenario.
 
 ### Days 4–7 — Build the operating system
 
-- expose records through Django Admin and a company-status dashboard;
-- implement deterministic metrics and prioritization;
-- add behavioral and migration tests.
+- [x] expose records through Django Admin and a company-status dashboard;
+- [x] implement deterministic metrics and prioritization;
+- [x] add a staff-only operator console for approvals, audit history, and cycle history;
+- [x] add behavioral and migration tests.
+
+The deterministic refresh command is:
+
+```bash
+uv run python manage.py refresh_customer_zero
+```
+
+It recalculates nine measures from authoritative records and reprioritizes current
+work. Priority 1 covers in-progress work, approval-blocked work, and requested
+revisions; ready and other blocked work are priority 2; proposed work is priority 3;
+completed work is moved to priority 5. Every refresh appends an audit event.
+
+The staff-only `/operator/` view is the human control point. It shows pending
+approvals, metrics, prioritized work, operating-cycle history, and recent audit
+events. Deciding a proposal records the human, time, note, proposal state, and audit
+event. Approval still cannot enable an unavailable or external executor.
 
 ### Week 2 — Build the controlled player
 
@@ -187,13 +204,30 @@ zero unauthorized external actions.
 - added deterministic version production with named owners, targets, and cash review;
 - returned the revised deliverable to customer review with visible version history.
 
+### 2026-08-01 — Days 4–7 operating system
+
+- added deterministic calculation of nine operating measures and documented work priority rules;
+- linked the synthetic external follow-up to a real pending approval record;
+- added a staff-only operator console with approval decisions, cycle history, and audit visibility;
+- preserved the independent execution gate after approval and kept external execution disabled;
+- added a repeatable refresh command and behavioral coverage for metrics, priority, access, and controls.
+
 ### Verification evidence
 
 ![Customer Zero company-status dashboard](images/customer-zero-dashboard.png)
 
+| Staff-only operator control | Approved but still non-executable |
+|---|---|
+| ![Customer Zero operator console](images/customer-zero-operator-console.png) | ![Synthetic approval recorded](images/customer-zero-approval-recorded.png) |
+
+![Days 4–7 company dashboard with deterministic measures](images/customer-zero-days-4-7-dashboard.png)
+
 - migration applied successfully to the local development database;
 - scenario loader completed twice without duplicating records;
 - Django system check reported no issues;
-- formatting, linting, type checking, and all 17 tests passed;
+- formatting, linting, type checking, and all 28 tests passed;
 - browser inspection confirmed the synthetic label, company measures, priority
-  work, operating report, action-control states, and open risks are visible.
+  work, pending approval, operating report, audit event, action-control states,
+  and open risks are visible;
+- browser execution verified that human approval updates the proposal and approval
+  metric while external execution remains disabled.

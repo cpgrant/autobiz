@@ -110,6 +110,11 @@ company level. During Customer Zero, external execution is always disabled and
 unknown action types fail closed as prohibited. The complete scenario matrix is in
 [Customer Zero experiment](13-customer-zero.md).
 
+The staff-only operator console can approve or reject a pending synthetic proposal.
+The decision records owner, time, note, linked proposal state, and an audit event.
+An approval never overrides the separate executor-availability and company-wide
+external-execution checks.
+
 The synthetic customer portal accepts only local test records. It requests no card
 details and has no payment-provider integration. Customer-entered text is treated as
 untrusted data and rendered with escaping. Journey links are intentionally unauthenticated

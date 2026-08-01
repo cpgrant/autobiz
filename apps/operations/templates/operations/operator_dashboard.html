@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Operator console · {{ company.name }}</title>
+  <style>
+    :root { color-scheme: dark; --ink:#f6f3ea; --muted:#aaa89f; --line:#34342f; --panel:#1b1c19; --accent:#d7ff64; --amber:#ffc857; --red:#ff7b72; }
+    * { box-sizing:border-box; } body { margin:0; background:#11120f; color:var(--ink); font:15px/1.5 ui-sans-serif,system-ui,sans-serif; }
+    main { width:min(1180px,calc(100% - 40px)); margin:auto; padding:42px 0 70px; } header { display:flex; justify-content:space-between; gap:24px; align-items:start; margin-bottom:26px; }
+    h1 { margin:5px 0 8px; font-size:clamp(34px,6vw,58px); line-height:1; letter-spacing:-.04em; } h2 { margin:0 0 14px; font-size:14px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+    p { margin:0; color:var(--muted); } .eyebrow { color:var(--accent); font-size:12px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+    .badge { display:inline-flex; border:1px solid #65782f; background:#22291a; color:var(--accent); border-radius:99px; padding:7px 12px; font-weight:700; }
+    .grid { display:grid; grid-template-columns:repeat(12,1fr); gap:14px; } .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px; } .full{grid-column:span 12}.half{grid-column:span 6}
+    table { width:100%; border-collapse:collapse; } th,td { padding:10px 8px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--muted); font-size:11px; letter-spacing:.08em; text-transform:uppercase; } tr:last-child td{border:0}
+    button { border:0; border-radius:9px; padding:10px 14px; font-weight:800; cursor:pointer; background:var(--accent); color:#111; } button.reject { background:transparent; color:var(--red); border:1px solid #70403c; } input { width:min(420px,100%); margin:8px 0 10px; padding:10px; background:#11120f; border:1px solid var(--line); border-radius:8px; color:var(--ink); }
+    .notice { border-left:3px solid var(--amber); padding-left:12px; color:var(--ink); } .messages { margin:0 0 14px; padding:12px 16px; background:#22291a; border:1px solid #65782f; border-radius:10px; list-style:none; }
+    a { color:var(--accent); text-decoration:none; } .pill { display:inline-block; border:1px solid var(--line); border-radius:99px; padding:3px 8px; font-size:12px; }
+    @media(max-width:800px){header{flex-direction:column}.full,.half{grid-column:span 12}}
+  </style>
+</head>
+<body><main>
+  <header>
+    <div><div class="eyebrow">Customer Zero · human control point</div><h1>Operator console</h1><p>Inspect company state, refresh deterministic calculations, and decide consequential proposals.</p></div>
+    <div><span class="badge">● Synthetic data only</span><p style="margin-top:12px"><a href="/company/">Company status →</a></p></div>
+  </header>
+  {% if messages %}<ul class="messages">{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>{% endif %}
+  <section class="grid">
+    <article class="card full"><h2>Control boundary</h2><p class="notice">An approval records a human decision. It does not create an executor: communications, spending, publishing, and all real external actions remain disabled.</p><form method="post" action="{% url 'operator-refresh' %}" style="margin-top:16px">{% csrf_token %}<button type="submit">Refresh metrics & priorities</button></form></article>
+    <article class="card full"><h2>Pending approvals</h2>
+      {% if pending_approvals %}{% for approval in pending_approvals %}<div style="padding:8px 0 18px"><strong>{{ approval.action_type }}</strong> <span class="pill">{{ approval.get_status_display }}</span><p>{{ approval.request_payload }}</p>
+        <form method="post" action="{% url 'operator-decide-approval' approval.pk 'approved' %}">{% csrf_token %}<label for="note-{{ approval.pk }}">Decision note</label><br><input id="note-{{ approval.pk }}" name="note" placeholder="Why is this safe or useful?"><br><button type="submit">Approve proposal</button></form>
+        <form method="post" action="{% url 'operator-decide-approval' approval.pk 'rejected' %}" style="margin-top:8px">{% csrf_token %}<button class="reject" type="submit">Reject proposal</button></form>
+      </div>{% endfor %}{% else %}<p>No pending approvals.</p>{% endif %}
+    </article>
+    <article class="card half"><h2>Deterministic metrics</h2><table><thead><tr><th>Metric</th><th>Current</th><th>Target</th></tr></thead><tbody>{% for metric in metrics %}<tr><td>{{ metric.name }}</td><td>{{ metric.value }} {{ metric.unit }}</td><td>{% if metric.target_value is not None %}{{ metric.target_value }}{% else %}—{% endif %}</td></tr>{% endfor %}</tbody></table></article>
+    <article class="card half"><h2>Prioritized work</h2><table><thead><tr><th>Priority</th><th>Function</th><th>Work</th><th>Status</th></tr></thead><tbody>{% for item in work_items %}<tr><td>0{{ item.priority }}</td><td>{{ item.get_function_display }}</td><td>{{ item.title }}</td><td>{{ item.get_status_display }}</td></tr>{% endfor %}</tbody></table></article>
+    <article class="card half"><h2>Operating cycle history</h2><table><thead><tr><th>Date</th><th>Status</th><th>Report</th></tr></thead><tbody>{% for cycle in cycles %}<tr><td>{{ cycle.operating_date }}</td><td>{{ cycle.get_status_display }}</td><td>{{ cycle.report }}</td></tr>{% endfor %}</tbody></table></article>
+    <article class="card half"><h2>Recent audit history</h2><table><thead><tr><th>Time</th><th>Actor</th><th>Event</th></tr></thead><tbody>{% for event in audit_events %}<tr><td>{{ event.created_at|date:"M j, H:i" }}</td><td>{{ event.actor }}</td><td>{{ event.event_type }}</td></tr>{% endfor %}</tbody></table></article>
+  </section>
+</main></body></html>

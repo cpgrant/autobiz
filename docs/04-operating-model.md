@@ -110,3 +110,8 @@ departments:
 
 The experiment and daily loop are specified in
 [Customer Zero experiment](13-customer-zero.md).
+
+The implemented human control point is a staff-only operator console. It exposes
+deterministically calculated measures, work priority, pending approvals, operating
+cycle history, and append-only audit events. It remains one functional view inside
+the Django monolith rather than a new department or agent.

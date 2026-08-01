@@ -39,13 +39,20 @@
 <main>
   <header>
     <div><div class="eyebrow">Customer Zero · local operating system</div><h1>{{ company.name }}</h1><p>{{ company.mission }}</p></div>
-    <div><span class="badge">● Synthetic data only</span><p style="margin-top:14px"><a href="/customer/request/" style="color:var(--accent)">Act as a synthetic customer →</a></p></div>
+    <div><span class="badge">● Synthetic data only</span><p style="margin-top:14px"><a href="/customer/request/" style="color:var(--accent)">Act as a synthetic customer →</a><br><a href="/operator/" style="color:var(--accent)">Open operator console →</a></p></div>
   </header>
   <section class="grid" aria-label="Company metrics">
     <article class="card metric"><span class="value">{{ company.customers.count }}</span><span class="label">simulated parties</span></article>
     <article class="card metric"><span class="value">{{ opportunities.count }}</span><span class="label">open opportunities</span></article>
     <article class="card metric"><span class="value">€{{ revenue }}</span><span class="label">synthetic revenue</span></article>
     <article class="card metric"><span class="value">€{{ costs }}</span><span class="label">synthetic costs</span></article>
+
+    <article class="card full">
+      <h2>Deterministic metrics</h2>
+      <table><thead><tr><th>Metric</th><th>Current</th><th>Target</th><th>Updated</th></tr></thead><tbody>
+      {% for metric in metrics %}<tr><td>{{ metric.name }}</td><td>{{ metric.value }} {{ metric.unit }}</td><td>{% if metric.target_value is not None %}{{ metric.target_value }} {{ metric.unit }}{% else %}—{% endif %}</td><td>{{ metric.updated_at|date:"M j, H:i" }}</td></tr>{% endfor %}
+      </tbody></table>
+    </article>
 
     <article class="card full">
       <h2>Recent synthetic customer journeys</h2>

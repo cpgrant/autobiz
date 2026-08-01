@@ -1,3 +1,6 @@
+from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
+from django.core.exceptions import ValidationError
 from django.db import connections
 from django.db.models import Sum
 from django.db.utils import OperationalError
@@ -7,6 +10,8 @@ from django.views.decorators.http import require_POST
 
 from .forms import DeliverableReviewForm, SyntheticCustomerRequestForm
 from .models import (
+    Approval,
+    AuditEvent,
     Company,
     CustomerRequest,
     Deliverable,
@@ -14,10 +19,13 @@ from .models import (
     Offer,
     Opportunity,
     SyntheticPayment,
+    WorkItem,
 )
 from .services import (
     accept_synthetic_offer,
+    decide_approval,
     produce_revised_deliverable,
+    refresh_company_state,
     review_deliverable,
     simulate_payment_and_delivery,
     submit_synthetic_request,
@@ -31,6 +39,7 @@ def home(request):
 <body><main><h1>Autobiz</h1><p>Controlled business foundation is running.</p>
 <ul><li><a href=\"/customer/request/\">Start synthetic customer journey</a></li>
 <li><a href=\"/company/\">Customer Zero company status</a></li>
+<li><a href=\"/operator/\">Operator console</a></li>
 <li><a href=\"/health/\">Health</a></li><li><a href=\"/ready/\">Readiness</a></li>
 <li><a href=\"/admin/\">Django admin</a></li></ul></main></body></html>"""
     )
@@ -87,6 +96,65 @@ def company_status(request):
             "costs": costs,
         },
     )
+
+
+@staff_member_required
+def operator_dashboard(request):
+    company = get_object_or_404(Company, key="autobiz")
+    pending_approvals = Approval.objects.filter(
+        status=Approval.Status.PENDING,
+        workflow_run__engagement__customer__company=company,
+    ).select_related("workflow_run", "workflow_run__engagement")
+    return render(
+        request,
+        "operations/operator_dashboard.html",
+        {
+            "company": company,
+            "metrics": company.metrics.all(),
+            "work_items": company.work_items.exclude(status=WorkItem.Status.DONE)[:10],
+            "pending_approvals": pending_approvals,
+            "cycles": company.operating_cycles.all()[:10],
+            "audit_events": AuditEvent.objects.order_by("-created_at")[:20],
+        },
+    )
+
+
+@staff_member_required
+@require_POST
+def operator_refresh(request):
+    company = get_object_or_404(Company, key="autobiz")
+    result = refresh_company_state(company=company, actor=f"user:{request.user.pk}")
+    messages.success(
+        request,
+        f"Refreshed {result.metrics_updated} metrics and prioritized "
+        f"{result.work_items_prioritized} work items.",
+    )
+    return redirect("operator-dashboard")
+
+
+@staff_member_required
+@require_POST
+def operator_decide_approval(request, approval_id, decision):
+    company = get_object_or_404(Company, key="autobiz")
+    approval = get_object_or_404(
+        Approval,
+        pk=approval_id,
+        status=Approval.Status.PENDING,
+        workflow_run__engagement__customer__company=company,
+    )
+    try:
+        decide_approval(
+            approval=approval,
+            decision=decision,
+            decided_by=request.user,
+            note=request.POST.get("note", ""),
+        )
+    except ValidationError as error:
+        messages.error(request, str(error))
+    else:
+        refresh_company_state(company=company, actor=f"user:{request.user.pk}")
+        messages.success(request, f"Approval {decision}. External execution remains disabled.")
+    return redirect("operator-dashboard")
 
 
 def customer_request(request):

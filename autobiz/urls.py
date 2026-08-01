@@ -13,6 +13,9 @@ from apps.operations.views import (
     customer_simulate_revision,
     health,
     home,
+    operator_dashboard,
+    operator_decide_approval,
+    operator_refresh,
     readiness,
 )
 
@@ -20,6 +23,13 @@ urlpatterns = [
     path("", home, name="home"),
     path("admin/", admin.site.urls),
     path("company/", company_status, name="company-status"),
+    path("operator/", operator_dashboard, name="operator-dashboard"),
+    path("operator/refresh/", operator_refresh, name="operator-refresh"),
+    path(
+        "operator/approvals/<uuid:approval_id>/decide/<slug:decision>/",
+        operator_decide_approval,
+        name="operator-decide-approval",
+    ),
     path("customer/request/", customer_request, name="customer-request"),
     path("customer/<uuid:request_id>/offer/", customer_offer, name="customer-offer"),
     path(

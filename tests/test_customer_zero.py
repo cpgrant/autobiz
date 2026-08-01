@@ -3,6 +3,7 @@ from django.urls import reverse
 
 from apps.operations.models import (
     ActionProposal,
+    Approval,
     Company,
     Customer,
     FinancialEntry,
@@ -25,11 +26,12 @@ def test_customer_zero_loader_is_idempotent(db):
         Opportunity.objects.count(),
         FinancialEntry.objects.count(),
         ActionProposal.objects.count(),
+        Approval.objects.count(),
     )
 
     load_scenario()
 
-    assert first_counts == (1, 12, 3, 3, 3, 3)
+    assert first_counts == (1, 12, 3, 3, 3, 3, 1)
     assert first_counts == (
         Company.objects.count(),
         Customer.objects.count(),
@@ -37,6 +39,7 @@ def test_customer_zero_loader_is_idempotent(db):
         Opportunity.objects.count(),
         FinancialEntry.objects.count(),
         ActionProposal.objects.count(),
+        Approval.objects.count(),
     )
 
 
@@ -81,5 +84,6 @@ def test_company_status_shows_synthetic_operating_state(client, db):
     content = response.content.decode()
     assert "Synthetic data only" in content
     assert "Priority work" in content
+    assert "Deterministic metrics" in content
     assert "Action control" in content
     assert "External action requested" in content

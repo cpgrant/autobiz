@@ -1,10 +1,12 @@
 from collections.abc import Callable
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, cast
 
 from django.contrib.auth.models import AbstractBaseUser
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 
 from .models import (
@@ -17,9 +19,12 @@ from .models import (
     Deliverable,
     Engagement,
     FinancialEntry,
+    Metric,
     Offer,
+    OperatingCycle,
     Opportunity,
     Product,
+    Risk,
     SyntheticPayment,
     WorkItem,
 )
@@ -87,6 +92,149 @@ def can_execute_action(*, company: Company, proposal: ActionProposal) -> bool:
     if proposal.requires_approval:
         return bool(proposal.approval and proposal.approval.status == Approval.Status.APPROVED)
     return proposal.authority_level <= ActionProposal.AuthorityLevel.BOUNDED_EXECUTE
+
+
+@dataclass(frozen=True)
+class CompanyStateRefresh:
+    metrics_updated: int
+    work_items_prioritized: int
+    audit_event: AuditEvent
+
+
+def deterministic_priority(work_item: WorkItem) -> int:
+    """Assign a documented 1–5 priority using authoritative workflow state."""
+    if work_item.status == WorkItem.Status.DONE:
+        return 5
+    if work_item.status == WorkItem.Status.IN_PROGRESS:
+        return 1
+    if work_item.status == WorkItem.Status.BLOCKED and work_item.requires_approval:
+        return 1
+    if work_item.key.startswith("revision-") and work_item.status == WorkItem.Status.READY:
+        return 1
+    if work_item.status == WorkItem.Status.READY:
+        return 2
+    if work_item.status == WorkItem.Status.BLOCKED:
+        return 2
+    return 3
+
+
+def _metric_values(company: Company) -> list[tuple[str, str, Decimal, Decimal | None, str]]:
+    open_opportunities = company.opportunities.exclude(
+        stage__in=[Opportunity.Stage.WON, Opportunity.Stage.LOST]
+    )
+    weighted_pipeline = sum(
+        (
+            opportunity.estimated_value_eur
+            * Decimal(opportunity.probability_percent)
+            / Decimal(100)
+            for opportunity in open_opportunities
+        ),
+        Decimal(0),
+    )
+    revenue = company.financial_entries.filter(
+        entry_type=FinancialEntry.EntryType.REVENUE
+    ).aggregate(total=Sum("amount_eur"))["total"] or Decimal(0)
+    costs = company.financial_entries.filter(entry_type=FinancialEntry.EntryType.COST).aggregate(
+        total=Sum("amount_eur")
+    )["total"] or Decimal(0)
+    total_work = company.work_items.count()
+    completed_work = company.work_items.filter(status=WorkItem.Status.DONE).count()
+    completion_rate = (
+        Decimal(completed_work) * Decimal(100) / Decimal(total_work) if total_work else Decimal(0)
+    )
+    terminal_approvals = Approval.objects.filter(
+        workflow_run__engagement__customer__company=company,
+        status__in=[Approval.Status.APPROVED, Approval.Status.REJECTED],
+    )
+    terminal_count = terminal_approvals.count()
+    approval_rate = (
+        Decimal(terminal_approvals.filter(status=Approval.Status.APPROVED).count())
+        * Decimal(100)
+        / Decimal(terminal_count)
+        if terminal_count
+        else Decimal(0)
+    )
+    return [
+        (
+            "cycle-completion",
+            "Completed operating cycles",
+            Decimal(
+                company.operating_cycles.filter(status=OperatingCycle.Status.COMPLETED).count()
+            ),
+            Decimal(10),
+            "cycles",
+        ),
+        ("approval-rate", "Approval rate", approval_rate, Decimal(80), "percent"),
+        (
+            "unauthorized-actions",
+            "Unauthorized external actions",
+            Decimal(
+                AuditEvent.objects.filter(
+                    event_type="unauthorized-external-action",
+                    payload__company_id=str(company.pk),
+                ).count()
+            ),
+            Decimal(0),
+            "actions",
+        ),
+        ("pipeline-value", "Weighted pipeline value", weighted_pipeline, Decimal(5000), "EUR"),
+        (
+            "open-opportunities",
+            "Open opportunities",
+            Decimal(open_opportunities.count()),
+            None,
+            "opportunities",
+        ),
+        ("synthetic-revenue", "Synthetic revenue", revenue, None, "EUR"),
+        ("synthetic-costs", "Synthetic costs", costs, None, "EUR"),
+        ("work-completion", "Work completion", completion_rate, Decimal(90), "percent"),
+        (
+            "open-risks",
+            "Open risks",
+            Decimal(company.risks.filter(status=Risk.Status.OPEN).count()),
+            Decimal(0),
+            "risks",
+        ),
+    ]
+
+
+@transactional
+def refresh_company_state(*, company: Company, actor: str) -> CompanyStateRefresh:
+    """Recalculate metrics and work priorities without running an operating cycle."""
+    metrics_updated = 0
+    for key, name, value, target, unit in _metric_values(company):
+        Metric.objects.update_or_create(
+            company=company,
+            key=key,
+            defaults={
+                "name": name,
+                "value": value.quantize(Decimal("0.01")),
+                "target_value": target,
+                "unit": unit,
+                "is_synthetic": True,
+            },
+        )
+        metrics_updated += 1
+
+    work_items_prioritized = 0
+    for work_item in company.work_items.all():
+        priority = deterministic_priority(work_item)
+        if work_item.priority != priority:
+            work_item.priority = priority
+            work_item.save(update_fields=["priority", "updated_at"])
+        work_items_prioritized += 1
+
+    audit_event = AuditEvent.objects.create(
+        event_type="company-state-refreshed",
+        actor=actor,
+        payload={
+            "company_id": str(company.pk),
+            "metrics_updated": metrics_updated,
+            "work_items_prioritized": work_items_prioritized,
+            "synthetic": True,
+        },
+    )
+    return CompanyStateRefresh(metrics_updated, work_items_prioritized, audit_event)
 
 
 @dataclass(frozen=True)
@@ -454,6 +602,15 @@ def decide_approval(
         locked.save(
             update_fields=["status", "decided_by", "decided_at", "decision_note", "updated_at"]
         )
+
+        if hasattr(locked, "action_proposal"):
+            proposal = locked.action_proposal
+            proposal.status = (
+                ActionProposal.Status.AUTHORIZED
+                if decision == Approval.Status.APPROVED
+                else ActionProposal.Status.REJECTED
+            )
+            proposal.save(update_fields=["status", "updated_at"])
 
         audit_event = AuditEvent.objects.create(
             workflow_run=locked.workflow_run,

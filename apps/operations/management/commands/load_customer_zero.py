@@ -6,6 +6,7 @@ from django.db import transaction
 
 from apps.operations.models import (
     ActionProposal,
+    Approval,
     AuditEvent,
     Company,
     Customer,
@@ -256,6 +257,28 @@ class Command(BaseCommand):
                 "output_data": {"operating_cycle_id": str(cycle.pk), "synthetic": True},
             },
         )
+        approval_run, _ = WorkflowRun.objects.get_or_create(
+            engagement=pilot,
+            workflow_key="synthetic-external-follow-up",
+            defaults={
+                "status": WorkflowRun.Status.AWAITING_APPROVAL,
+                "input_data": {
+                    "recipient": "prospect-01@example.invalid",
+                    "synthetic": True,
+                },
+            },
+        )
+        approval, _ = Approval.objects.get_or_create(
+            workflow_run=approval_run,
+            action_type="send-communication",
+            defaults={
+                "request_payload": {
+                    "recipient": "prospect-01@example.invalid",
+                    "subject": "Synthetic Atlas follow-up",
+                    "synthetic": True,
+                }
+            },
+        )
 
         for key, action_type, title, work_key, status in [
             (
@@ -298,6 +321,15 @@ class Command(BaseCommand):
                     "is_synthetic": True,
                 },
             )
+            if key == "send-atlas-follow-up":
+                proposal.approval = approval
+                proposal.status = {
+                    Approval.Status.PENDING: ActionProposal.Status.AWAITING_APPROVAL,
+                    Approval.Status.APPROVED: ActionProposal.Status.AUTHORIZED,
+                    Approval.Status.REJECTED: ActionProposal.Status.REJECTED,
+                    Approval.Status.EXPIRED: ActionProposal.Status.BLOCKED,
+                }[approval.status]
+                proposal.save(update_fields=["approval", "status", "updated_at"])
             AuditEvent.objects.get_or_create(
                 event_type=f"synthetic-proposal-{key}",
                 actor="system:customer-zero-loader",
