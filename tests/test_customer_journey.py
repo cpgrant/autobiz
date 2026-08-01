@@ -115,6 +115,20 @@ def test_revision_requires_a_note(client, synthetic_scenario):
 
 
 @pytest.mark.django_db
+def test_deliverable_review_renders_aligned_choice_controls(client, synthetic_scenario):
+    submit_request(client)
+    customer_request = CustomerRequest.objects.latest("created_at")
+    client.post(reverse("customer-accept-offer", args=[customer_request.pk]))
+    client.post(reverse("customer-simulate-payment", args=[customer_request.pk]))
+
+    response = client.get(reverse("customer-deliverable", args=[customer_request.pk]))
+
+    content = response.content.decode()
+    assert 'class="review-options"' in content
+    assert 'type="radio"' in content
+
+
+@pytest.mark.django_db
 def test_customer_input_is_escaped_in_deliverable(client, synthetic_scenario):
     response = client.post(
         reverse("customer-request"),

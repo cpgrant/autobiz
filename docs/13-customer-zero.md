@@ -95,6 +95,8 @@ real customers will require authentication and authorization.
 
 ![Company state after the completed customer journey](images/synthetic-customer-company-update.png)
 
+![Corrected customer review controls](images/corrected-review-controls.png)
+
 ## Authority matrix
 
 | Action | Level | Initial behavior |
@@ -163,6 +165,11 @@ zero unauthorized external actions.
 - fixed the synthetic Establish price at €1,200 in deterministic application logic;
 - generated a bounded local operating-plan deliverable without AI or external calls;
 - added accept and revision-request review paths with audit events.
+
+### 2026-08-01 — Review-control correction
+
+- aligned each radio control with its decision label and made the full choice row clickable;
+- visually verified the corrected review form and added regression coverage.
 
 ### Verification evidence
 

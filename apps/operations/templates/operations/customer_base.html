@@ -24,6 +24,10 @@
     .step.active { border-color:var(--lime); color:var(--ink); }
     label { display:block; margin:18px 0 7px; font-weight:700; }
     input,select,textarea { width:100%; padding:12px 13px; border:1px solid #4a4b43; border-radius:9px; background:#121310; color:var(--ink); font:inherit; }
+    input[type="radio"] { width:auto; margin:0; padding:0; accent-color:var(--lime); }
+    .review-options > div { display:flex; flex-direction:column; gap:10px; margin:12px 0 20px; }
+    .review-options label { display:flex; align-items:center; gap:10px; margin:0; padding:12px 14px; border:1px solid var(--line); border-radius:9px; cursor:pointer; }
+    .review-options label:has(input:checked) { border-color:var(--lime); background:#22291a; }
     textarea { resize:vertical; }
     button,.button { display:inline-block; margin-top:22px; padding:12px 18px; border:0; border-radius:9px; background:var(--lime); color:#111; font-weight:850; cursor:pointer; }
     .secondary { background:transparent; color:var(--ink); border:1px solid var(--line); }
