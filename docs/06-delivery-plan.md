@@ -4,6 +4,10 @@
 **Planning method:** Evidence-gated milestones
 **Status vocabulary:** Not started / In progress / Deferred — required / Blocked / Complete
 
+Current execution progress is tracked in the
+[Business readiness roadmap](15-business-readiness-roadmap.md). This document retains
+the program-level delivery sequence and decision gates.
+
 ## Program view
 
 ```mermaid

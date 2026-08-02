@@ -33,6 +33,8 @@ remain gated. See [Required validation gate](docs/09-required-validation-gate.md
 - [Foundation backlog](docs/10-foundation-backlog.md)
 - [Local operator runbook](docs/11-operator-runbook.md)
 - [Customer Zero experiment](docs/13-customer-zero.md)
+- [Loop operator guide](docs/14-loop-operator-guide.md)
+- [Business readiness roadmap](docs/15-business-readiness-roadmap.md)
 - [Interview candidate register](planning/interview-candidates.md)
 
 ## Planning workbooks

@@ -2,6 +2,9 @@
 
 **Status:** Week 3 complete; Management, Operations, and Customer Loop gates passed — initiated 2026-08-01
 
+Current Week 4 and real-business progress is tracked in the
+[Business readiness roadmap](15-business-readiness-roadmap.md).
+
 **Owner:** Founder/operator
 
 **Mode:** Local, synthetic, reversible
