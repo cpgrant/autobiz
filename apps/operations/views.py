@@ -8,20 +8,39 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from .ai_providers import FakeAIProvider
+from .customer_evaluation import decide_customer_evaluation, run_customer_evaluation
+from .customer_loop import decide_customer_draft, run_customer_loop
 from .cycle_services import run_daily_cycle
 from .forms import DeliverableReviewForm, SyntheticCustomerRequestForm
+from .live_management_evaluation import (
+    decide_live_management_evaluation,
+    run_live_management_evaluation,
+)
+from .management_evaluation import run_management_evaluation
+from .management_loop import decide_suggestion, run_management_loop
 from .models import (
     Approval,
     AuditEvent,
     Company,
+    CustomerDraft,
+    CustomerEvaluationRun,
     CustomerRequest,
     Deliverable,
     FinancialEntry,
+    ManagementEvaluationRun,
     Offer,
+    OperationsEvaluationRun,
     Opportunity,
+    Suggestion,
     SyntheticPayment,
     WorkItem,
 )
+from .operations_evaluation import (
+    decide_operations_evaluation,
+    run_operations_evaluation,
+)
+from .operations_loop import run_operations_loop
 from .services import (
     accept_synthetic_offer,
     decide_approval,
@@ -117,6 +136,22 @@ def operator_dashboard(request):
             "cycles": company.operating_cycles.all()[:10],
             "weekly_reports": company.weekly_reports.all()[:8],
             "audit_events": AuditEvent.objects.order_by("-created_at")[:20],
+            "management_suggestions": Suggestion.objects.filter(
+                run__company=company, run__loop="management"
+            ).select_related("run", "work_item")[:10],
+            "operations_suggestions": Suggestion.objects.filter(
+                run__company=company, run__loop="operations"
+            ).select_related("run", "work_item")[:10],
+            "management_evaluations": company.management_evaluation_runs.prefetch_related("cases")[
+                :5
+            ],
+            "operations_evaluations": company.operations_evaluation_runs.prefetch_related("cases")[
+                :5
+            ],
+            "customer_drafts": CustomerDraft.objects.filter(run__company=company).select_related(
+                "run", "run__customer_request"
+            )[:10],
+            "customer_evaluations": company.customer_evaluation_runs.prefetch_related("cases")[:5],
         },
     )
 
@@ -145,6 +180,268 @@ def operator_run_cycle(request):
         f"{result.internal_actions_simulated} bounded action simulated and "
         f"{result.approvals_requested} approval request created.",
     )
+    return redirect("operator-dashboard")
+
+
+@staff_member_required
+@require_POST
+def operator_run_management_loop(request):
+    company = get_object_or_404(Company, key="autobiz")
+    result = run_management_loop(
+        company=company,
+        actor=f"user:{request.user.pk}",
+        provider=FakeAIProvider(),
+    )
+    if result.run.status == result.run.Status.FAILED:
+        messages.error(request, "Management suggestion run failed safely.")
+    else:
+        messages.success(request, f"Created {result.suggestions_created} management suggestion.")
+    return redirect("operator-dashboard")
+
+
+@staff_member_required
+@require_POST
+def operator_run_management_evaluation(request):
+    company = get_object_or_404(Company, key="autobiz")
+    result = run_management_evaluation(company=company, actor=f"user:{request.user.pk}")
+    message = (
+        f"Management evaluation {result.status}: "
+        f"{result.cases_passed}/{result.cases_total} cases passed."
+    )
+    if result.status == result.Status.PASSED:
+        messages.success(request, message)
+    else:
+        messages.error(request, message)
+    return redirect("operator-dashboard")
+
+
+@staff_member_required
+@require_POST
+def operator_run_live_management_evaluation(request):
+    company = get_object_or_404(Company, key="autobiz", is_synthetic=True)
+    result = run_live_management_evaluation(
+        company=company,
+        actor=f"user:{request.user.pk}",
+    )
+    message = (
+        f"Live Management evaluation {result.status}: "
+        f"{result.cases_passed}/{result.cases_total} cases passed."
+    )
+    if result.status == result.Status.NEEDS_REVIEW:
+        messages.success(request, f"{message} Human usefulness review is required.")
+    else:
+        messages.error(request, message)
+    return redirect("operator-dashboard")
+
+
+@staff_member_required
+@require_POST
+def operator_decide_live_management_evaluation(request, evaluation_id, decision):
+    company = get_object_or_404(Company, key="autobiz")
+    evaluation = get_object_or_404(
+        company.management_evaluation_runs,
+        pk=evaluation_id,
+        provider="openai",
+        status=ManagementEvaluationRun.Status.NEEDS_REVIEW,
+    )
+    try:
+        decide_live_management_evaluation(
+            evaluation=evaluation,
+            decision=decision,
+            decided_by=request.user,
+            note=request.POST.get("note", ""),
+        )
+    except ValidationError as error:
+        messages.error(request, str(error))
+    else:
+        messages.success(request, f"Live Management evaluation marked {decision}.")
+    return redirect("operator-dashboard")
+
+
+@staff_member_required
+@require_POST
+def operator_decide_suggestion(request, suggestion_id, decision):
+    company = get_object_or_404(Company, key="autobiz")
+    suggestion = get_object_or_404(
+        Suggestion,
+        pk=suggestion_id,
+        run__company=company,
+        status=Suggestion.Status.PENDING,
+    )
+    try:
+        decide_suggestion(
+            suggestion=suggestion,
+            decision=decision,
+            decided_by=request.user,
+            note=request.POST.get("note", ""),
+        )
+    except ValidationError as error:
+        messages.error(request, str(error))
+    else:
+        messages.success(request, f"Suggestion {decision}.")
+    return redirect("operator-dashboard")
+
+
+@staff_member_required
+@require_POST
+def operator_run_operations_loop(request):
+    company = get_object_or_404(Company, key="autobiz")
+    try:
+        result = run_operations_loop(
+            company=company,
+            actor=f"user:{request.user.pk}",
+            provider=FakeAIProvider(),
+        )
+    except ValidationError as error:
+        messages.error(request, str(error))
+    else:
+        if result.run.status == result.run.Status.FAILED:
+            messages.error(request, "Operations suggestion run failed safely.")
+        else:
+            messages.success(
+                request, f"Created {result.suggestions_created} Operations suggestion."
+            )
+    return redirect("operator-dashboard")
+
+
+@staff_member_required
+@require_POST
+def operator_run_operations_evaluation(request, mode):
+    company = get_object_or_404(Company, key="autobiz", is_synthetic=True)
+    live = mode == "live"
+    if mode not in {"offline", "live"}:
+        messages.error(request, "Unknown Operations evaluation mode.")
+        return redirect("operator-dashboard")
+    try:
+        result = run_operations_evaluation(
+            company=company,
+            actor=f"user:{request.user.pk}",
+            live=live,
+        )
+    except ValidationError as error:
+        messages.error(request, str(error))
+    else:
+        message = (
+            f"Operations evaluation {result.status}: "
+            f"{result.cases_passed}/{result.cases_total} cases passed."
+        )
+        if result.status in {result.Status.PASSED, result.Status.NEEDS_REVIEW}:
+            messages.success(request, message)
+        else:
+            messages.error(request, message)
+    return redirect("operator-dashboard")
+
+
+@staff_member_required
+@require_POST
+def operator_decide_operations_evaluation(request, evaluation_id, decision):
+    company = get_object_or_404(Company, key="autobiz")
+    evaluation = get_object_or_404(
+        company.operations_evaluation_runs,
+        pk=evaluation_id,
+        provider="openai",
+        status=OperationsEvaluationRun.Status.NEEDS_REVIEW,
+    )
+    try:
+        decide_operations_evaluation(
+            evaluation=evaluation,
+            decision=decision,
+            decided_by=request.user,
+            note=request.POST.get("note", ""),
+        )
+    except ValidationError as error:
+        messages.error(request, str(error))
+    else:
+        messages.success(request, f"Operations evaluation marked {decision}.")
+    return redirect("operator-dashboard")
+
+
+@staff_member_required
+@require_POST
+def operator_run_customer_loop(request):
+    company = get_object_or_404(Company, key="autobiz", is_synthetic=True)
+    try:
+        result = run_customer_loop(
+            company=company, actor=f"user:{request.user.pk}", provider=FakeAIProvider()
+        )
+    except ValidationError as error:
+        messages.error(request, str(error))
+    else:
+        messages.success(request, f"Created {result.drafts_created} customer draft for review.")
+    return redirect("operator-dashboard")
+
+
+@staff_member_required
+@require_POST
+def operator_run_customer_evaluation(request, mode):
+    company = get_object_or_404(Company, key="autobiz", is_synthetic=True)
+    if mode not in {"offline", "live"}:
+        messages.error(request, "Unknown Customer evaluation mode.")
+        return redirect("operator-dashboard")
+    try:
+        result = run_customer_evaluation(
+            company=company, actor=f"user:{request.user.pk}", live=mode == "live"
+        )
+    except ValidationError as error:
+        messages.error(request, str(error))
+    else:
+        message = (
+            f"Customer evaluation {result.status}: "
+            f"{result.cases_passed}/{result.cases_total} cases passed."
+        )
+        if result.status in {result.Status.PASSED, result.Status.NEEDS_REVIEW}:
+            messages.success(request, message)
+        else:
+            messages.error(request, message)
+    return redirect("operator-dashboard")
+
+
+@staff_member_required
+@require_POST
+def operator_decide_customer_draft(request, draft_id, decision):
+    company = get_object_or_404(Company, key="autobiz")
+    draft = get_object_or_404(
+        CustomerDraft,
+        pk=draft_id,
+        run__company=company,
+        status=CustomerDraft.Status.PENDING,
+    )
+    try:
+        decide_customer_draft(
+            draft=draft,
+            decision=decision,
+            decided_by=request.user,
+            note=request.POST.get("note", ""),
+        )
+    except ValidationError as error:
+        messages.error(request, str(error))
+    else:
+        messages.success(request, f"Customer draft marked {decision}; nothing was sent.")
+    return redirect("operator-dashboard")
+
+
+@staff_member_required
+@require_POST
+def operator_decide_customer_evaluation(request, evaluation_id, decision):
+    company = get_object_or_404(Company, key="autobiz")
+    evaluation = get_object_or_404(
+        CustomerEvaluationRun,
+        pk=evaluation_id,
+        company=company,
+        provider="openai",
+        status=CustomerEvaluationRun.Status.NEEDS_REVIEW,
+    )
+    try:
+        decide_customer_evaluation(
+            evaluation=evaluation,
+            decision=decision,
+            decided_by=request.user,
+            note=request.POST.get("note", ""),
+        )
+    except ValidationError as error:
+        messages.error(request, str(error))
+    else:
+        messages.success(request, f"Customer evaluation marked {decision}.")
     return redirect("operator-dashboard")
 
 

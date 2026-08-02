@@ -120,6 +120,33 @@ or management command. Date-keyed database constraints and `get_or_create` calls
 prevent duplicate business records. Each completed date is immutable to the runner;
 failed dates are retried after the partial transaction is rolled back.
 
+## Bounded Management Loop AI boundary
+
+```mermaid
+flowchart LR
+    P["PostgreSQL business records"] --> S["Read-only synthetic snapshot"]
+    S --> B["Provider-neutral AI boundary"]
+    B --> V["Pydantic and evidence validation"]
+    V --> H{"Staff decision"}
+    H -->|Accept| W["Proposed synthetic WorkItem"]
+    H -->|Reject or defer| R["Decision record"]
+    V --> A["Audit and evaluation data"]
+    W -. no execution .-> X["External execution disabled"]
+```
+
+The Management Loop is the first AI-assisted loop. After its technical and human
+gates pass, the Operations Loop reuses the same provider-neutral and human-decision
+boundary with a loop-specific schema and snapshot of completed cycles, metrics,
+risks, and internal work. Its fake provider is the default
+for repeatable local use. The optional OpenAI Responses API adapter uses structured
+outputs without tools. AI results are secondary records: deterministic code validates
+evidence and staff decisions control whether a valid suggestion becomes draft work.
+The same boundary is exercised by an offline evaluation harness whose scenario and
+aggregate results are durable records. Evaluation cannot accept suggestions or
+create work items; it measures containment before a real-provider experiment. Each
+Operations run is linked to its latest completed cycle. The Customer Loop remains
+outside this boundary until Operations passes both gates.
+
 ## Synthetic customer journey boundary
 
 ```mermaid
@@ -144,6 +171,23 @@ webhooks, reconciliation, legal, tax, privacy, refund, and operational controls.
 Deliverables use a per-request version number and a database-enforced single-current
 constraint. Prior versions remain authoritative history; revisions create new rows
 rather than overwriting reviewed artifacts.
+
+## Draft-only Customer Loop AI boundary
+
+```mermaid
+flowchart LR
+    P["Synthetic customer records"] --> S["Read-only customer snapshot"]
+    S --> B["Provider-neutral draft generator"]
+    B --> V["Schema, evidence, promise, and privacy validation"]
+    V --> H{"Staff review"}
+    H -->|Approve| D["Approved unsent draft"]
+    H -->|Reject or defer| R["Decision record"]
+    D -. no sender .-> X["External communication disabled"]
+```
+
+The Customer Loop activates only after the Operations human gate passes. It cannot
+change authoritative customer, offer, price, payment, engagement, or deliverable
+state. An approved draft remains unsent and has no external execution path.
 
 ## Workflow state
 

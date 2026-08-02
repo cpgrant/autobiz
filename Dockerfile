@@ -12,7 +12,7 @@ COPY autobiz ./autobiz
 COPY apps ./apps
 COPY manage.py ./manage.py
 
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir . 'openai>=2.0,<3' 'pydantic-settings>=2.10,<3'
 
 RUN DJANGO_SECRET_KEY=build-only python manage.py collectstatic --noinput
 

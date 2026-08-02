@@ -89,9 +89,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 WHITENOISE_AUTOREFRESH = DEBUG
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
-    },
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

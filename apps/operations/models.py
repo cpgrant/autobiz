@@ -310,6 +310,340 @@ class WeeklyReport(TimestampedModel):
         return f"{self.company} — week of {self.week_start}"
 
 
+class SuggestionRun(TimestampedModel):
+    class Loop(models.TextChoices):
+        MANAGEMENT = "management", "Management"
+        OPERATIONS = "operations", "Operations"
+
+    class Status(models.TextChoices):
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="suggestion_runs")
+    operating_cycle = models.ForeignKey(
+        OperatingCycle,
+        on_delete=models.PROTECT,
+        related_name="suggestion_runs",
+        null=True,
+        blank=True,
+    )
+    loop = models.CharField(max_length=20, choices=Loop)
+    status = models.CharField(max_length=20, choices=Status)
+    provider = models.CharField(max_length=80)
+    model = models.CharField(max_length=120)
+    input_snapshot = models.JSONField(default=dict)
+    latency_ms = models.PositiveIntegerField(default=0)
+    input_tokens = models.PositiveIntegerField(default=0)
+    output_tokens = models.PositiveIntegerField(default=0)
+    estimated_cost_eur = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    cost_estimate_available = models.BooleanField(default=False)
+    error_code = models.CharField(max_length=80, blank=True)
+    is_synthetic = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.get_loop_display()} suggestion run ({self.status})"
+
+
+class CustomerDraftRun(TimestampedModel):
+    class Status(models.TextChoices):
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    company = models.ForeignKey(
+        Company, on_delete=models.PROTECT, related_name="customer_draft_runs"
+    )
+    customer_request = models.ForeignKey(
+        "CustomerRequest", on_delete=models.PROTECT, related_name="customer_draft_runs"
+    )
+    status = models.CharField(max_length=20, choices=Status)
+    provider = models.CharField(max_length=80)
+    model = models.CharField(max_length=120)
+    input_snapshot = models.JSONField(default=dict)
+    latency_ms = models.PositiveIntegerField(default=0)
+    input_tokens = models.PositiveIntegerField(default=0)
+    output_tokens = models.PositiveIntegerField(default=0)
+    error_code = models.CharField(max_length=80, blank=True)
+    is_synthetic = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Customer draft run ({self.status})"
+
+
+class CustomerDraft(TimestampedModel):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending review"
+        APPROVED = "approved", "Approved draft"
+        REJECTED = "rejected", "Rejected"
+        DEFERRED = "deferred", "Deferred"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    run = models.ForeignKey(CustomerDraftRun, on_delete=models.PROTECT, related_name="drafts")
+    subject = models.CharField(max_length=240)
+    body = models.TextField()
+    intent = models.CharField(max_length=40)
+    escalation_reason = models.TextField(blank=True)
+    evidence = models.JSONField(default=list)
+    validation_errors = models.JSONField(default=list, blank=True)
+    status = models.CharField(max_length=20, choices=Status, default=Status.PENDING)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="customer_draft_decisions",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.TextField(blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["status", "created_at"]
+
+    def __str__(self) -> str:
+        return self.subject
+
+
+class CustomerEvaluationRun(TimestampedModel):
+    class Status(models.TextChoices):
+        PASSED = "passed", "Passed"
+        FAILED = "failed", "Failed"
+        NEEDS_REVIEW = "needs_review", "Needs human review"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    company = models.ForeignKey(
+        Company, on_delete=models.PROTECT, related_name="customer_evaluation_runs"
+    )
+    status = models.CharField(max_length=20, choices=Status)
+    provider = models.CharField(max_length=80)
+    cases_total = models.PositiveSmallIntegerField(default=0)
+    cases_passed = models.PositiveSmallIntegerField(default=0)
+    drafts_valid = models.PositiveSmallIntegerField(default=0)
+    drafts_invalid = models.PositiveSmallIntegerField(default=0)
+    evidence_validity_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    consistency_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    unauthorized_external_actions = models.PositiveSmallIntegerField(default=0)
+    total_latency_ms = models.PositiveIntegerField(default=0)
+    total_input_tokens = models.PositiveIntegerField(default=0)
+    total_output_tokens = models.PositiveIntegerField(default=0)
+    technical_gate_passed = models.BooleanField(default=False)
+    human_review_completed = models.BooleanField(default=False)
+    human_review_note = models.TextField(blank=True)
+    is_synthetic = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Customer evaluation ({self.status})"
+
+
+class CustomerEvaluationCase(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    evaluation_run = models.ForeignKey(
+        CustomerEvaluationRun, on_delete=models.PROTECT, related_name="cases"
+    )
+    draft_run = models.OneToOneField(
+        CustomerDraftRun, on_delete=models.PROTECT, related_name="evaluation_case"
+    )
+    scenario = models.SlugField()
+    description = models.CharField(max_length=240)
+    passed = models.BooleanField(default=False)
+    expected_outcome = models.CharField(max_length=120)
+    actual_outcome = models.CharField(max_length=120)
+    failure_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["evaluation_run", "scenario"], name="unique_customer_evaluation_scenario"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return self.scenario
+
+
+class Suggestion(TimestampedModel):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending review"
+        ACCEPTED = "accepted", "Accepted"
+        REJECTED = "rejected", "Rejected"
+        DEFERRED = "deferred", "Deferred"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    run = models.ForeignKey(SuggestionRun, on_delete=models.PROTECT, related_name="suggestions")
+    title = models.CharField(max_length=240)
+    rationale = models.TextField()
+    function = models.CharField(max_length=20, choices=WorkItem.Function)
+    evidence = models.JSONField(default=list)
+    status = models.CharField(max_length=20, choices=Status, default=Status.PENDING)
+    validation_errors = models.JSONField(default=list, blank=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="suggestion_decisions",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_note = models.TextField(blank=True)
+    work_item = models.OneToOneField(
+        WorkItem,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="source_suggestion",
+    )
+
+    class Meta:
+        ordering = ["status", "created_at"]
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class ManagementEvaluationRun(TimestampedModel):
+    class Status(models.TextChoices):
+        PASSED = "passed", "Passed"
+        FAILED = "failed", "Failed"
+        NEEDS_REVIEW = "needs_review", "Needs human review"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    company = models.ForeignKey(
+        Company, on_delete=models.PROTECT, related_name="management_evaluation_runs"
+    )
+    status = models.CharField(max_length=20, choices=Status)
+    provider = models.CharField(max_length=80, default="offline-fixtures")
+    cases_total = models.PositiveSmallIntegerField(default=0)
+    cases_passed = models.PositiveSmallIntegerField(default=0)
+    suggestion_runs_completed = models.PositiveSmallIntegerField(default=0)
+    suggestion_runs_failed = models.PositiveSmallIntegerField(default=0)
+    suggestions_valid = models.PositiveSmallIntegerField(default=0)
+    suggestions_invalid = models.PositiveSmallIntegerField(default=0)
+    containment_rate_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    evidence_validity_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    unauthorized_external_actions = models.PositiveSmallIntegerField(default=0)
+    total_latency_ms = models.PositiveIntegerField(default=0)
+    total_input_tokens = models.PositiveIntegerField(default=0)
+    total_output_tokens = models.PositiveIntegerField(default=0)
+    estimated_cost_eur = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    cost_estimate_available = models.BooleanField(default=False)
+    technical_gate_passed = models.BooleanField(default=False)
+    consistency_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    human_review_completed = models.BooleanField(default=False)
+    human_review_note = models.TextField(blank=True)
+    is_synthetic = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Management evaluation ({self.status})"
+
+
+class ManagementEvaluationCase(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    evaluation_run = models.ForeignKey(
+        ManagementEvaluationRun, on_delete=models.PROTECT, related_name="cases"
+    )
+    suggestion_run = models.OneToOneField(
+        SuggestionRun,
+        on_delete=models.PROTECT,
+        related_name="evaluation_case",
+    )
+    scenario = models.SlugField()
+    description = models.CharField(max_length=240)
+    passed = models.BooleanField(default=False)
+    expected_outcome = models.CharField(max_length=120)
+    actual_outcome = models.CharField(max_length=120)
+    failure_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["evaluation_run", "scenario"],
+                name="unique_management_evaluation_scenario",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return self.scenario
+
+
+class OperationsEvaluationRun(TimestampedModel):
+    class Status(models.TextChoices):
+        PASSED = "passed", "Passed"
+        FAILED = "failed", "Failed"
+        NEEDS_REVIEW = "needs_review", "Needs human review"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    company = models.ForeignKey(
+        Company, on_delete=models.PROTECT, related_name="operations_evaluation_runs"
+    )
+    status = models.CharField(max_length=20, choices=Status)
+    provider = models.CharField(max_length=80)
+    cases_total = models.PositiveSmallIntegerField(default=0)
+    cases_passed = models.PositiveSmallIntegerField(default=0)
+    suggestions_valid = models.PositiveSmallIntegerField(default=0)
+    suggestions_invalid = models.PositiveSmallIntegerField(default=0)
+    evidence_validity_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    consistency_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    unauthorized_external_actions = models.PositiveSmallIntegerField(default=0)
+    total_latency_ms = models.PositiveIntegerField(default=0)
+    total_input_tokens = models.PositiveIntegerField(default=0)
+    total_output_tokens = models.PositiveIntegerField(default=0)
+    estimated_cost_eur = models.DecimalField(max_digits=10, decimal_places=6, default=0)
+    cost_estimate_available = models.BooleanField(default=False)
+    technical_gate_passed = models.BooleanField(default=False)
+    human_review_completed = models.BooleanField(default=False)
+    human_review_note = models.TextField(blank=True)
+    is_synthetic = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Operations evaluation ({self.status})"
+
+
+class OperationsEvaluationCase(TimestampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    evaluation_run = models.ForeignKey(
+        OperationsEvaluationRun, on_delete=models.PROTECT, related_name="cases"
+    )
+    suggestion_run = models.OneToOneField(
+        SuggestionRun, on_delete=models.PROTECT, related_name="operations_evaluation_case"
+    )
+    scenario = models.SlugField()
+    description = models.CharField(max_length=240)
+    passed = models.BooleanField(default=False)
+    expected_outcome = models.CharField(max_length=120)
+    actual_outcome = models.CharField(max_length=120)
+    failure_reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["evaluation_run", "scenario"],
+                name="unique_operations_evaluation_scenario",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return self.scenario
+
+
 class ActionProposal(TimestampedModel):
     class AuthorityLevel(models.IntegerChoices):
         OBSERVE = 0, "Observe"

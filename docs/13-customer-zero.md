@@ -1,6 +1,6 @@
 # Customer Zero experiment
 
-**Status:** Week 2 complete; limited AI assistance remains deferred — initiated 2026-08-01
+**Status:** Week 3 complete; Management, Operations, and Customer Loop gates passed — initiated 2026-08-01
 
 **Owner:** Founder/operator
 
@@ -189,9 +189,131 @@ uv run python manage.py run_customer_zero_cycle
 
 ### Week 3 — Add limited AI assistance
 
-- put model calls behind a provider-neutral service boundary;
-- restrict AI to summaries, suggestions, and draft content;
+- [x] add strict Pydantic schemas and a provider-neutral service boundary;
+- [x] add a deterministic fake provider and optional official Responses API adapter;
+- [x] persist suggestion runs, suggestions, evidence, validation, usage, and failures;
+- [x] display Management Loop suggestions with accept, reject, and defer controls;
+- [x] convert acceptance into a proposed synthetic work item only;
+- [x] build the local evaluation fixture suite and containment metrics;
+- [x] run synthetic scenarios through the real provider and pass the technical gate;
+- [x] record the founder's explicit Management usefulness go/no-go decision;
+- [x] add Operations Loop assistance only after the Management Loop evaluation gate;
+- [x] add deterministic offline Operations evaluation and a synthetic live gate;
+- [x] record the founder's explicit Operations usefulness go/no-go decision;
+- [x] defer the Customer Loop until both internal loops pass evaluation;
+- [x] implement the Customer Loop as human-reviewed, unsent drafts only;
+- [x] add offline and synthetic live Customer evaluation infrastructure;
+- [x] record the founder's explicit Customer usefulness go/no-go decision;
 - run repeated scenarios and measure errors, approvals, completion, and economics.
+
+The first Week 3 increment is deliberately internal. Model output cannot modify
+authoritative facts, metrics, prices, permissions, or workflow state. Evidence
+references are checked deterministically against the exact PostgreSQL snapshot sent
+to the provider. Invalid suggestions remain visible but cannot be accepted. Provider
+failure is recorded without creating partial suggestions. Human acceptance creates
+only a draft `WorkItem`, while all execution and external communication remain
+disabled.
+
+The offline Management Loop evaluation contains six named scenarios: grounded
+output, unknown evidence, unsafe external-action language, duplicate suggestions,
+provider timeout, and malformed structured output. Each evaluation persists the
+expected and actual outcome, containment result, evidence-validity rate, latency,
+token usage, estimated cost, and unauthorized-external-action count. This fixture
+suite is a deterministic regression gate; it does not establish real-model utility.
+The next gate is a separately initiated synthetic-only Responses API evaluation.
+
+### 2026-08-02 — Live Management Loop technical gate
+
+The live evaluation uses the official OpenAI Python SDK, Responses API, strict
+Pydantic output, `gpt-5.6-sol`, medium reasoning, low text verbosity, `store=false`,
+no tools, a 1,500-token output bound, and a 60-second request timeout. One retry is
+allowed only when local Pydantic parsing fails; API, authentication, and rate-limit
+errors are not retried by application code.
+
+The final persisted Management run passed all six
+synthetic cases:
+
+- 6/6 cases completed with valid structured suggestions;
+- 100% evidence validity and 100% function-level baseline consistency;
+- 7,386 input tokens and 3,425 output tokens;
+- 50,541 ms aggregate latency;
+- zero unauthorized external actions;
+- cost remains explicitly unavailable because no reviewed EUR-per-token rate is
+  configured; the system does not invent pricing.
+
+The technical result required human review. The founder recorded a pass, unlocking
+the bounded Operations implementation. The generated
+suggestions stayed internal and proposed controlled-cycle plans, quality checks,
+cash review, opportunity qualification, and human review of external-action
+exceptions. The founder/operator must explicitly pass or fail usefulness before the
+Operations Loop began.
+
+### 2026-08-02 — Operations Loop implementation
+
+The Operations Loop reads only completed synthetic cycles, metrics, open risks, and
+open work. It produces a structured summary, exceptions, and one to three draft
+internal improvements with deterministic evidence and safety validation. Operators
+can accept, reject, or defer each suggestion; acceptance creates proposed work only.
+
+Its offline suite covers grounded output, unknown evidence, unsafe language,
+duplicates, timeout, and malformed structured output. The live suite covers two
+baselines, recovery context, stale/conflicting evidence, instruction-like report
+text, and pressure toward external action. Customer Loop work remains deferred until
+the live Operations technical gate and explicit human usefulness decision pass.
+
+The authoritative offline run `0bb9861d-2c9b-4baf-a6ba-3e79bb87d898` passed 6/6
+with zero unauthorized external actions. The synthetic live run
+`b762f528-8974-4ec3-bd71-ae5b8c496845` also passed its technical gate:
+
+- 6/6 cases passed;
+- 100% evidence validity and 100% function-level baseline consistency;
+- 15,152 input tokens and 6,176 output tokens;
+- 78,984 ms aggregate latency;
+- zero unauthorized external actions.
+
+The founder recorded a noted human pass. The persisted Operations gate is `passed`,
+which unlocked the bounded Customer Loop implementation.
+
+### 2026-08-02 — Customer Loop implementation
+
+After the Operations gate received a human pass, the Customer Loop was implemented
+as a draft-only boundary. It reads synthetic requests, offers, engagements, and
+deliverable metadata and produces structured drafts with evidence. Deterministic
+checks reject unknown evidence, unsafe promises, automatic-send claims, prompt
+injection, and sensitive credential requests. Human approval marks a draft approved
+but cannot send it or modify authoritative customer state.
+
+The offline evaluation exercises grounded drafting, unknown evidence, unsafe
+promises, privacy leakage, prompt injection, timeout, and malformed output. The live
+suite uses six synthetic-only cases and still requires a human usefulness decision.
+See `docs/14-loop-operator-guide.md` for the minimum-effort operating instructions.
+
+The authoritative offline run `62d40e5f-0f49-4c0a-bfff-cd08e2c25b3c` passed 7/7.
+Live evaluation exposed and corrected a privacy-refusal false positive and replaced
+exact-label consistency with evidence-set overlap. The final live run
+`613fbf17-83c4-4401-ac0f-6d66f7605e7a` passed its technical gate:
+
+- 6/6 cases passed;
+- 100% evidence validity and 100% baseline evidence consistency;
+- 4,621 input tokens and 1,845 output tokens;
+- 34,539 ms aggregate latency;
+- zero unauthorized external actions.
+
+The founder recorded a noted human pass. The persisted Customer gate is `passed`;
+all three bounded loop gates are complete while external execution remains disabled.
+
+### 2026-08-02 12:30 — Week 3 closeout checklist
+
+- [x] reconcile the milestone documentation with all three persisted human gate passes;
+- [x] run the final lint, type, migration, test, and diff verification;
+- [x] review the accumulated Week 3 changes for credentials and generated local data;
+- [x] create a clean Git commit for the Week 3 implementation;
+- [x] document the minimum-effort loop cadence and operator decision examples;
+- [ ] complete a short repeated synthetic operating period;
+- [ ] measure suggestion acceptance, substantial rewriting, duplicate or unsupported
+  output, review time, API cost per useful output, and unauthorized actions;
+- [x] keep real customer data, external integrations, automatic scheduling, and
+  production authorization explicitly deferred.
 
 ## Definition of success
 

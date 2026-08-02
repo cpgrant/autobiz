@@ -6,17 +6,27 @@ from .models import (
     AuditEvent,
     Company,
     Customer,
+    CustomerDraft,
+    CustomerDraftRun,
+    CustomerEvaluationCase,
+    CustomerEvaluationRun,
     CustomerRequest,
     Deliverable,
     Engagement,
     FinancialEntry,
     Goal,
+    ManagementEvaluationCase,
+    ManagementEvaluationRun,
     Metric,
     Offer,
     OperatingCycle,
+    OperationsEvaluationCase,
+    OperationsEvaluationRun,
     Opportunity,
     Product,
     Risk,
+    Suggestion,
+    SuggestionRun,
     SyntheticPayment,
     WeeklyReport,
     WorkflowRun,
@@ -128,6 +138,85 @@ class OperatingCycleAdmin(admin.ModelAdmin):
 class WeeklyReportAdmin(admin.ModelAdmin):
     list_display = ("company", "week_start", "cycle_count", "is_synthetic", "updated_at")
     list_filter = ("is_synthetic",)
+
+
+@admin.register(SuggestionRun)
+class SuggestionRunAdmin(admin.ModelAdmin):
+    list_display = ("company", "loop", "status", "provider", "model", "latency_ms", "created_at")
+    list_filter = ("loop", "status", "provider")
+    readonly_fields = ("input_snapshot", "created_at", "updated_at")
+
+
+@admin.register(Suggestion)
+class SuggestionAdmin(admin.ModelAdmin):
+    list_display = ("title", "run", "function", "status", "decided_by", "created_at")
+    list_filter = ("status", "function")
+
+
+@admin.register(ManagementEvaluationRun)
+class ManagementEvaluationRunAdmin(admin.ModelAdmin):
+    list_display = (
+        "company",
+        "status",
+        "cases_passed",
+        "cases_total",
+        "containment_rate_percent",
+        "unauthorized_external_actions",
+        "created_at",
+    )
+    list_filter = ("status", "provider")
+    readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(ManagementEvaluationCase)
+class ManagementEvaluationCaseAdmin(admin.ModelAdmin):
+    list_display = ("scenario", "evaluation_run", "passed", "expected_outcome", "actual_outcome")
+    list_filter = ("passed", "scenario")
+
+
+@admin.register(OperationsEvaluationRun)
+class OperationsEvaluationRunAdmin(admin.ModelAdmin):
+    list_display = (
+        "company",
+        "status",
+        "cases_passed",
+        "cases_total",
+        "evidence_validity_percent",
+        "unauthorized_external_actions",
+        "created_at",
+    )
+    list_filter = ("status", "provider")
+    readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(OperationsEvaluationCase)
+class OperationsEvaluationCaseAdmin(admin.ModelAdmin):
+    list_display = ("scenario", "evaluation_run", "passed", "expected_outcome", "actual_outcome")
+    list_filter = ("passed", "scenario")
+
+
+@admin.register(CustomerDraftRun)
+class CustomerDraftRunAdmin(admin.ModelAdmin):
+    list_display = ("customer_request", "status", "provider", "model", "created_at")
+    list_filter = ("status", "provider")
+
+
+@admin.register(CustomerDraft)
+class CustomerDraftAdmin(admin.ModelAdmin):
+    list_display = ("subject", "intent", "status", "decided_by", "sent_at", "created_at")
+    list_filter = ("status", "intent")
+
+
+@admin.register(CustomerEvaluationRun)
+class CustomerEvaluationRunAdmin(admin.ModelAdmin):
+    list_display = ("company", "status", "cases_passed", "cases_total", "created_at")
+    list_filter = ("status", "provider")
+
+
+@admin.register(CustomerEvaluationCase)
+class CustomerEvaluationCaseAdmin(admin.ModelAdmin):
+    list_display = ("scenario", "evaluation_run", "passed", "expected_outcome", "actual_outcome")
+    list_filter = ("passed", "scenario")
 
 
 @admin.register(ActionProposal)

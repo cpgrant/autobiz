@@ -15,8 +15,20 @@ from apps.operations.views import (
     home,
     operator_dashboard,
     operator_decide_approval,
+    operator_decide_customer_draft,
+    operator_decide_customer_evaluation,
+    operator_decide_live_management_evaluation,
+    operator_decide_operations_evaluation,
+    operator_decide_suggestion,
     operator_refresh,
+    operator_run_customer_evaluation,
+    operator_run_customer_loop,
     operator_run_cycle,
+    operator_run_live_management_evaluation,
+    operator_run_management_evaluation,
+    operator_run_management_loop,
+    operator_run_operations_evaluation,
+    operator_run_operations_loop,
     readiness,
 )
 
@@ -27,6 +39,66 @@ urlpatterns = [
     path("operator/", operator_dashboard, name="operator-dashboard"),
     path("operator/refresh/", operator_refresh, name="operator-refresh"),
     path("operator/run-cycle/", operator_run_cycle, name="operator-run-cycle"),
+    path(
+        "operator/management-loop/run/",
+        operator_run_management_loop,
+        name="operator-run-management-loop",
+    ),
+    path(
+        "operator/management-loop/evaluate/",
+        operator_run_management_evaluation,
+        name="operator-run-management-evaluation",
+    ),
+    path(
+        "operator/management-loop/evaluate/live/",
+        operator_run_live_management_evaluation,
+        name="operator-run-live-management-evaluation",
+    ),
+    path(
+        "operator/management-loop/evaluations/<uuid:evaluation_id>/decide/<slug:decision>/",
+        operator_decide_live_management_evaluation,
+        name="operator-decide-live-management-evaluation",
+    ),
+    path(
+        "operator/suggestions/<uuid:suggestion_id>/decide/<slug:decision>/",
+        operator_decide_suggestion,
+        name="operator-decide-suggestion",
+    ),
+    path(
+        "operator/operations-loop/run/",
+        operator_run_operations_loop,
+        name="operator-run-operations-loop",
+    ),
+    path(
+        "operator/operations-loop/evaluate/<slug:mode>/",
+        operator_run_operations_evaluation,
+        name="operator-run-operations-evaluation",
+    ),
+    path(
+        "operator/operations-loop/evaluations/<uuid:evaluation_id>/decide/<slug:decision>/",
+        operator_decide_operations_evaluation,
+        name="operator-decide-operations-evaluation",
+    ),
+    path(
+        "operator/customer-loop/run/",
+        operator_run_customer_loop,
+        name="operator-run-customer-loop",
+    ),
+    path(
+        "operator/customer-loop/evaluate/<slug:mode>/",
+        operator_run_customer_evaluation,
+        name="operator-run-customer-evaluation",
+    ),
+    path(
+        "operator/customer-loop/drafts/<uuid:draft_id>/decide/<slug:decision>/",
+        operator_decide_customer_draft,
+        name="operator-decide-customer-draft",
+    ),
+    path(
+        "operator/customer-loop/evaluations/<uuid:evaluation_id>/decide/<slug:decision>/",
+        operator_decide_customer_evaluation,
+        name="operator-decide-customer-evaluation",
+    ),
     path(
         "operator/approvals/<uuid:approval_id>/decide/<slug:decision>/",
         operator_decide_approval,
