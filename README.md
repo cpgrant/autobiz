@@ -37,6 +37,22 @@ remain gated. See [Required validation gate](docs/09-required-validation-gate.md
 - [Business readiness roadmap](docs/15-business-readiness-roadmap.md)
 - [Interview candidate register](planning/interview-candidates.md)
 
+
+## Screens
+
+- Operator
+http://127.0.0.1:8000/operator/
+
+- Company
+http://127.0.0.1:8000/company/
+
+- Customer Request
+http://127.0.0.1:8000/customer/request/
+
+- Admin
+http://127.0.0.1:8000/admin/
+
+
 ## Planning workbooks
 
 - [Financial model](outputs/autobiz-blueprint/autobiz-financial-model.xlsx)
