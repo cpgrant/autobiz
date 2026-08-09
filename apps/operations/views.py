@@ -41,6 +41,7 @@ from .operations_evaluation import (
     run_operations_evaluation,
 )
 from .operations_loop import run_operations_loop
+from .payments import create_stripe_checkout_session
 from .services import (
     accept_synthetic_offer,
     decide_approval,
@@ -514,10 +515,27 @@ def customer_payment(request, request_id):
         return redirect("customer-offer", request_id=request_id)
     if SyntheticPayment.objects.filter(offer=customer_request_record.offer).exists():
         return redirect("customer-engagement", request_id=request_id)
+
+    success_url = request.build_absolute_uri(
+        f"/customer/request/{request_id}/engagement/"
+    )
+    cancel_url = request.build_absolute_uri(
+        f"/customer/request/{request_id}/payment/"
+    )
+    checkout_session = create_stripe_checkout_session(
+        offer=customer_request_record.offer,
+        success_url=success_url,
+        cancel_url=cancel_url,
+    )
+
     return render(
         request,
         "operations/customer_payment.html",
-        {"customer_request": customer_request_record, "offer": customer_request_record.offer},
+        {
+            "customer_request": customer_request_record,
+            "offer": customer_request_record.offer,
+            "checkout_session": checkout_session,
+        },
     )
 
 

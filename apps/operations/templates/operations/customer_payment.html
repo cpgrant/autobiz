@@ -1,11 +1,38 @@
 {% extends "operations/customer_base.html" %}
-{% block title %}Test payment{% endblock %}
+{% block title %}Complete Payment{% endblock %}
 {% block content %}
-<div class="eyebrow">Customer Zero · Step 3 of 5</div><h1>Simulate payment</h1>
-<div class="steps"><div class="step active">✓ Request</div><div class="step active">✓ Offer</div><div class="step active">3 Test payment</div><div class="step">4 Work</div><div class="step">5 Deliverable</div></div>
-<section class="card">
-  <p class="warning"><strong>No card is requested and no money moves.</strong> This creates a database-only synthetic payment of €{{ offer.price_eur }}.</p>
-  <div class="grid"><div class="stat"><span>Service</span><strong>Establish</strong></div><div class="stat"><span>Test total</span><strong>€{{ offer.price_eur }}</strong></div></div>
-  <form method="post" action="{% url 'customer-simulate-payment' customer_request.pk %}">{% csrf_token %}<button type="submit">Pay with synthetic money →</button></form>
-</section>
+<div class="eyebrow">Customer Zero · Step 3 of 5</div>
+<h1>Complete Payment</h1>
+<div class="steps">
+  <div class="step active">✓ Request</div>
+  <div class="step active">✓ Offer</div>
+  <div class="step active">3 Payment</div>
+  <div class="step">4 Work</div>
+  <div class="step">5 Deliverable</div>
+</div>
+
+<div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem;">
+  <section class="card">
+    <h2>💳 Pay via Stripe</h2>
+    <p>Secure checkout link generated for this proposal.</p>
+    <div class="stat"><span>Service</span><strong>Establish</strong></div>
+    <div class="stat"><span>Total</span><strong>€{{ offer.price_eur }}</strong></div>
+    <br>
+    <a href="{{ checkout_session.url }}" class="button primary" style="display: inline-block; padding: 0.75rem 1.25rem; text-decoration: none; font-weight: bold; background: #635bff; color: white; border-radius: 6px;">
+      Pay €{{ offer.price_eur }} with Stripe →
+    </a>
+  </section>
+
+  <section class="card">
+    <h2>⚡ Simulate Payment (Test Mode)</h2>
+    <p class="warning"><strong>1-Click Instant Test Mode:</strong> Simulates payment & triggers immediate automated delivery for demo validation.</p>
+    <div class="stat"><span>Service</span><strong>Establish</strong></div>
+    <div class="stat"><span>Simulated Total</span><strong>€{{ offer.price_eur }}</strong></div>
+    <br>
+    <form method="post" action="{% url 'customer-simulate-payment' customer_request.pk %}">
+      {% csrf_token %}
+      <button type="submit" style="padding: 0.75rem 1.25rem;">Simulate Instant Payment →</button>
+    </form>
+  </section>
+</div>
 {% endblock %}
