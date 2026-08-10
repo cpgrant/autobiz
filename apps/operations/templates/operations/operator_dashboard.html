@@ -14,7 +14,23 @@
     .grid { display:grid; grid-template-columns:repeat(12,1fr); gap:14px; } .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px; } .full{grid-column:span 12}.half{grid-column:span 6}
     table { width:100%; border-collapse:collapse; } th,td { padding:10px 8px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--muted); font-size:11px; letter-spacing:.08em; text-transform:uppercase; } tr:last-child td{border:0}
     button { border:0; border-radius:9px; padding:10px 14px; font-weight:800; cursor:pointer; background:var(--accent); color:#111; } button.reject { background:transparent; color:var(--red); border:1px solid #70403c; } input { width:min(420px,100%); margin:8px 0 10px; padding:10px; background:#11120f; border:1px solid var(--line); border-radius:8px; color:var(--ink); }
-    .notice { border-left:3px solid var(--amber); padding-left:12px; color:var(--ink); } .messages { margin:0 0 14px; padding:12px 16px; background:#22291a; border:1px solid #65782f; border-radius:10px; list-style:none; }
+    .notice {
+        border-left: 3px solid var(--amber);
+        background: #191a16;
+        padding: 12px 14px;
+        margin: 12px 0;
+        border-radius: 8px;
+        color: var(--ink);
+    }
+    .info {
+        border-left: 3px solid var(--accent);
+        background: #20251a;
+        padding: 12px 14px;
+        margin: 12px 0;
+        border-radius: 8px;
+        color: var(--ink);
+    }
+    .messages { margin:0 0 14px; padding:12px 16px; background:#22291a; border:1px solid #65782f; border-radius:10px; list-style:none; }
     a { color:var(--accent); text-decoration:none; } .pill { display:inline-block; border:1px solid var(--line); border-radius:99px; padding:3px 8px; font-size:12px; }
     @media(max-width:800px){header{flex-direction:column}.full,.half{grid-column:span 12}}
   </style>
@@ -27,7 +43,17 @@
   {% if messages %}<ul class="messages">{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>{% endif %}
   <section class="grid">
     <article class="card full"><h2>Daily Cycle Runner</h2><p class="notice">Runs the next synthetic day using deterministic rules. It reads state, prioritizes work, simulates only bounded internal actions, routes consequential proposals to approval, updates metrics, and writes reports. External actions remain disabled.</p><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px"><form method="post" action="{% url 'operator-run-cycle' %}">{% csrf_token %}<button type="submit">Run next synthetic day</button></form><form method="post" action="{% url 'operator-refresh' %}">{% csrf_token %}<button class="reject" type="submit" style="color:var(--accent);border-color:#65782f">Refresh metrics only</button></form></div></article>
-    <article class="card full"><h2>Management Loop suggestions</h2><p class="notice">AI suggestions are untrusted drafts based only on synthetic records. Acceptance creates a proposed WorkItem; it does not execute work or change authority.</p><form method="post" action="{% url 'operator-run-management-loop' %}" style="margin:16px 0">{% csrf_token %}<button type="submit">Generate synthetic suggestions</button></form>
+    <article class="card full"><h2>Management Loop suggestions</h2>
+      
+      {% if latest_management_run %}
+        <p class="info">
+            Powered by:
+            <strong>{{ latest_management_run.provider }}</strong>
+            /
+            <strong>{{ latest_management_run.model }}</strong>
+        </p>
+      {% endif %}
+      <p class="notice">AI suggestions are untrusted drafts based only on synthetic records. Acceptance creates a proposed WorkItem; it does not execute work or change authority.</p><form method="post" action="{% url 'operator-run-management-loop' %}" style="margin:16px 0">{% csrf_token %}<button type="submit">Generate synthetic suggestions</button></form>
       {% if management_suggestions %}<table><thead><tr><th>Suggestion</th><th>Evidence</th><th>Provider</th><th>Decision</th></tr></thead><tbody>{% for suggestion in management_suggestions %}<tr><td><strong>{{ suggestion.title }}</strong><p>{{ suggestion.rationale }}</p>{% if suggestion.validation_errors %}<p class="notice">Validation failed: {{ suggestion.validation_errors }}</p>{% endif %}</td><td>{{ suggestion.evidence }}</td><td>{{ suggestion.run.provider }} / {{ suggestion.run.model }}</td><td>{% if suggestion.status == 'pending' %}<form method="post" action="{% url 'operator-decide-suggestion' suggestion.pk 'accepted' %}">{% csrf_token %}<input name="note" aria-label="Decision note" placeholder="Decision note"><button type="submit">Accept as draft work</button></form><div style="display:flex;gap:8px;margin-top:8px"><form method="post" action="{% url 'operator-decide-suggestion' suggestion.pk 'deferred' %}">{% csrf_token %}<button class="reject" type="submit" style="color:var(--amber)">Defer</button></form><form method="post" action="{% url 'operator-decide-suggestion' suggestion.pk 'rejected' %}">{% csrf_token %}<button class="reject" type="submit">Reject</button></form></div>{% else %}<span class="pill">{{ suggestion.get_status_display }}</span>{% if suggestion.work_item %}<p>Draft: {{ suggestion.work_item.title }}</p>{% endif %}{% endif %}</td></tr>{% endfor %}</tbody></table>{% else %}<p>No AI suggestions yet.</p>{% endif %}
     </article>
     <article class="card full"><h2>Management Loop evaluation</h2><p class="notice">The offline suite tests deterministic containment. The live suite sends six synthetic-only snapshots to OpenAI with structured output, no tools, no storage, and no execution authority.</p><div style="display:flex;gap:10px;flex-wrap:wrap;margin:16px 0"><form method="post" action="{% url 'operator-run-management-evaluation' %}">{% csrf_token %}<button type="submit">Run offline evaluation suite</button></form><form method="post" action="{% url 'operator-run-live-management-evaluation' %}">{% csrf_token %}<button type="submit">Run live synthetic evaluation</button></form></div>

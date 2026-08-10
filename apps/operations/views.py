@@ -8,7 +8,8 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .ai_providers import FakeAIProvider
+from .ai_providers import get_ai_provider
+
 from .customer_evaluation import decide_customer_evaluation, run_customer_evaluation
 from .customer_loop import decide_customer_draft, run_customer_loop
 from .cycle_services import run_daily_cycle
@@ -23,7 +24,7 @@ from .models import (
     Approval,
     AuditEvent,
     Company,
-    CustomerDraft,
+    CustomerDraft,  
     CustomerEvaluationRun,
     CustomerRequest,
     Deliverable,
@@ -33,6 +34,7 @@ from .models import (
     OperationsEvaluationRun,
     Opportunity,
     Suggestion,
+    SuggestionRun,
     SyntheticPayment,
     WorkItem,
 )
@@ -126,6 +128,16 @@ def operator_dashboard(request):
         status=Approval.Status.PENDING,
         workflow_run__engagement__customer__company=company,
     ).select_related("workflow_run", "workflow_run__engagement")
+    latest_management_run = (
+        SuggestionRun.objects
+        .filter(
+            company=company,
+            loop="management",
+            status=SuggestionRun.Status.COMPLETED,
+        )
+        .order_by("-created_at")
+        .first()
+    )
     return render(
         request,
         "operations/operator_dashboard.html",
@@ -137,8 +149,9 @@ def operator_dashboard(request):
             "cycles": company.operating_cycles.all()[:10],
             "weekly_reports": company.weekly_reports.all()[:8],
             "audit_events": AuditEvent.objects.order_by("-created_at")[:20],
+            "latest_management_run": latest_management_run,
             "management_suggestions": Suggestion.objects.filter(
-                run__company=company, run__loop="management"
+                run=latest_management_run
             ).select_related("run", "work_item")[:10],
             "operations_suggestions": Suggestion.objects.filter(
                 run__company=company, run__loop="operations"
@@ -191,7 +204,7 @@ def operator_run_management_loop(request):
     result = run_management_loop(
         company=company,
         actor=f"user:{request.user.pk}",
-        provider=FakeAIProvider(),
+        provider=get_ai_provider(),
     )
     if result.run.status == result.run.Status.FAILED:
         messages.error(request, "Management suggestion run failed safely.")
@@ -291,7 +304,7 @@ def operator_run_operations_loop(request):
         result = run_operations_loop(
             company=company,
             actor=f"user:{request.user.pk}",
-            provider=FakeAIProvider(),
+            provider=get_ai_provider(),
         )
     except ValidationError as error:
         messages.error(request, str(error))
@@ -363,7 +376,7 @@ def operator_run_customer_loop(request):
     company = get_object_or_404(Company, key="autobiz", is_synthetic=True)
     try:
         result = run_customer_loop(
-            company=company, actor=f"user:{request.user.pk}", provider=FakeAIProvider()
+            company=company, actor=f"user:{request.user.pk}", provider=get_ai_provider()
         )
     except ValidationError as error:
         messages.error(request, str(error))

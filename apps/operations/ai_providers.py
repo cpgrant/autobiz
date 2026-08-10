@@ -8,6 +8,27 @@ from pydantic import ValidationError as PydanticValidationError
 from .ai_schemas import CustomerLoopOutput, ManagementLoopOutput, OperationsLoopOutput
 
 
+
+def gemini_schema(model):
+    schema = model.model_json_schema()
+
+    def clean(value):
+        if isinstance(value, dict):
+            value.pop("additionalProperties", None)
+            value.pop("additional_properties", None)
+
+            for v in value.values():
+                clean(v)
+
+        elif isinstance(value, list):
+            for item in value:
+                clean(item)
+
+    clean(schema)
+    return schema
+
+
+
 @dataclass(frozen=True)
 class ProviderResult:
     output: ManagementLoopOutput
@@ -283,7 +304,8 @@ class GeminiAIProvider:
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=ManagementLoopOutput,
+                #response_schema=ManagementLoopOutput,
+                response_schema=gemini_schema(ManagementLoopOutput),
             ),
         )
         output_text = response.text or "{}"
@@ -313,7 +335,8 @@ class GeminiAIProvider:
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=OperationsLoopOutput,
+                #response_schema=OperationsLoopOutput,
+                response_schema=gemini_schema(OperationsLoopOutput),
             ),
         )
         output_text = response.text or "{}"
@@ -343,7 +366,8 @@ class GeminiAIProvider:
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=CustomerLoopOutput,
+                #response_schema=CustomerLoopOutput,
+                response_schema=gemini_schema(CustomerLoopOutput),
             ),
         )
         output_text = response.text or "{}"
@@ -357,4 +381,31 @@ class GeminiAIProvider:
             input_tokens=usage.prompt_token_count if usage else 0,
             output_tokens=usage.candidates_token_count if usage else 0,
         )
+
+#def get_ai_provider():
+#    """Return Gemini when configured, otherwise deterministic fake provider."""
+#    if os.getenv("GEMINI_API_KEY"):
+#        return GeminiAIProvider()
+#    return FakeAIProvider()
+
+#def get_ai_provider():
+#    """Return configured AI provider."""
+#    if os.getenv("OPENAI_API_KEY"):
+#        return OpenAIResponsesProvider()
+#    if os.getenv("GEMINI_API_KEY"):
+#        return GeminiAIProvider()
+#    return FakeAIProvider()
+
+
+def get_ai_provider():
+    provider = os.getenv("AI_PROVIDER", "fake").lower()
+
+    if provider == "openai":
+        return OpenAIResponsesProvider()
+
+    if provider == "gemini":
+        return GeminiAIProvider()
+
+    return FakeAIProvider()
+
 

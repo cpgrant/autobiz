@@ -96,6 +96,7 @@ def _run_management_loop(
     try:
         result = provider.management_suggestions(snapshot=snapshot)
     except Exception as error:
+        print("GEMINI ERROR:", repr(error))
         run = SuggestionRun.objects.create(
             company=company,
             loop=SuggestionRun.Loop.MANAGEMENT,
