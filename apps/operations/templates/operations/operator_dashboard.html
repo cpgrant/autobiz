@@ -30,6 +30,19 @@
         border-radius: 8px;
         color: var(--ink);
     }
+    .evidence {
+        font-size: 13px;
+        color: var(--muted);
+    }
+
+    .evidence strong {
+        color: var(--ink);
+    }
+
+    .evidence ul {
+        margin: 6px 0 0;
+        padding-left: 18px;
+    }
     .messages { margin:0 0 14px; padding:12px 16px; background:#22291a; border:1px solid #65782f; border-radius:10px; list-style:none; }
     a { color:var(--accent); text-decoration:none; } .pill { display:inline-block; border:1px solid var(--line); border-radius:99px; padding:3px 8px; font-size:12px; }
     @media(max-width:800px){header{flex-direction:column}.full,.half{grid-column:span 12}}
@@ -40,6 +53,18 @@
     <div><div class="eyebrow">Customer Zero · human control point</div><h1>Operator console</h1><p>Inspect company state, refresh deterministic calculations, and decide consequential proposals.</p></div>
     <div><span class="badge">● Synthetic data only</span><p style="margin-top:12px"><a href="/company/">Company status →</a></p></div>
   </header>
+
+    <article class="card full">
+      <h2>Autonomous Business Control Loop</h2>
+      <p style="color:var(--ink);font-size:18px;font-weight:700;margin-bottom:8px">
+        OBSERVE → REASON → PROPOSE → HUMAN APPROVE → EXECUTE
+      </p>
+      <p>
+        Business state is observed continuously. AI agents generate proposals.
+        Human approval governs consequential actions before execution.
+      </p>
+    </article>
+
   {% if messages %}<ul class="messages">{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>{% endif %}
   <section class="grid">
     <article class="card full"><h2>Daily Cycle Runner</h2><p class="notice">Runs the next synthetic day using deterministic rules. It reads state, prioritizes work, simulates only bounded internal actions, routes consequential proposals to approval, updates metrics, and writes reports. External actions remain disabled.</p><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px"><form method="post" action="{% url 'operator-run-cycle' %}">{% csrf_token %}<button type="submit">Run next synthetic day</button></form><form method="post" action="{% url 'operator-refresh' %}">{% csrf_token %}<button class="reject" type="submit" style="color:var(--accent);border-color:#65782f">Refresh metrics only</button></form></div></article>
@@ -53,18 +78,66 @@
             <strong>{{ latest_management_run.model }}</strong>
         </p>
       {% endif %}
-      <p class="notice">AI suggestions are untrusted drafts based only on synthetic records. Acceptance creates a proposed WorkItem; it does not execute work or change authority.</p><form method="post" action="{% url 'operator-run-management-loop' %}" style="margin:16px 0">{% csrf_token %}<button type="submit">Generate synthetic suggestions</button></form>
-      {% if management_suggestions %}<table><thead><tr><th>Suggestion</th><th>Evidence</th><th>Provider</th><th>Decision</th></tr></thead><tbody>{% for suggestion in management_suggestions %}<tr><td><strong>{{ suggestion.title }}</strong><p>{{ suggestion.rationale }}</p>{% if suggestion.validation_errors %}<p class="notice">Validation failed: {{ suggestion.validation_errors }}</p>{% endif %}</td><td>{{ suggestion.evidence }}</td><td>{{ suggestion.run.provider }} / {{ suggestion.run.model }}</td><td>{% if suggestion.status == 'pending' %}<form method="post" action="{% url 'operator-decide-suggestion' suggestion.pk 'accepted' %}">{% csrf_token %}<input name="note" aria-label="Decision note" placeholder="Decision note"><button type="submit">Accept as draft work</button></form><div style="display:flex;gap:8px;margin-top:8px"><form method="post" action="{% url 'operator-decide-suggestion' suggestion.pk 'deferred' %}">{% csrf_token %}<button class="reject" type="submit" style="color:var(--amber)">Defer</button></form><form method="post" action="{% url 'operator-decide-suggestion' suggestion.pk 'rejected' %}">{% csrf_token %}<button class="reject" type="submit">Reject</button></form></div>{% else %}<span class="pill">{{ suggestion.get_status_display }}</span>{% if suggestion.work_item %}<p>Draft: {{ suggestion.work_item.title }}</p>{% endif %}{% endif %}</td></tr>{% endfor %}</tbody></table>{% else %}<p>No AI suggestions yet.</p>{% endif %}
+
+      <p class="notice">AI-generated proposals derived from business state records. Human approval is required before consequential actions.</p>      
+      
+      <form method="post" action="{% url 'operator-run-management-loop' %}" style="margin:16px 0">{% csrf_token %}<button type="submit">Generate synthetic suggestions</button></form>
+
+
+      {% if management_suggestions %}<table><thead><tr><th>Suggestion</th><th>Evidence</th><th>Provider</th><th>Decision</th></tr></thead><tbody>{% for suggestion in management_suggestions %}<tr><td><strong>{{ suggestion.title }}</strong><p>{{ suggestion.rationale }}</p>{% if suggestion.validation_errors %}<p class="notice">Validation failed: {{ suggestion.validation_errors }}</p>{% endif %}</td>
+        <td>
+          <div class="evidence">
+            <strong>Evidence from Business State</strong>
+            <ul>
+
+              {% for item in suggestion.evidence %}
+                <li>{{ item }}</li>
+              {% empty %}
+                <li>No evidence available</li>
+              {% endfor %}
+
+            </ul>
+          </div>
+        </td>
+
+        <td>{{ suggestion.run.provider }} / {{ suggestion.run.model }}</td><td>{% if suggestion.status == 'pending' %}<form method="post" action="{% url 'operator-decide-suggestion' suggestion.pk 'accepted' %}">{% csrf_token %}<input name="note" aria-label="Decision note" placeholder="Decision note"><button type="submit">Accept as draft work</button></form><div style="display:flex;gap:8px;margin-top:8px"><form method="post" action="{% url 'operator-decide-suggestion' suggestion.pk 'deferred' %}">{% csrf_token %}<button class="reject" type="submit" style="color:var(--amber)">Defer</button></form><form method="post" action="{% url 'operator-decide-suggestion' suggestion.pk 'rejected' %}">{% csrf_token %}<button class="reject" type="submit">Reject</button></form></div>{% else %}<span class="pill">{{ suggestion.get_status_display }}</span>{% if suggestion.work_item %}<p>Draft: {{ suggestion.work_item.title }}</p>{% endif %}{% endif %}</td></tr>{% endfor %}</tbody></table>{% else %}<p>No AI suggestions yet.</p>{% endif %}
     </article>
     <article class="card full"><h2>Management Loop evaluation</h2><p class="notice">The offline suite tests deterministic containment. The live suite sends six synthetic-only snapshots to OpenAI with structured output, no tools, no storage, and no execution authority.</p><div style="display:flex;gap:10px;flex-wrap:wrap;margin:16px 0"><form method="post" action="{% url 'operator-run-management-evaluation' %}">{% csrf_token %}<button type="submit">Run offline evaluation suite</button></form><form method="post" action="{% url 'operator-run-live-management-evaluation' %}">{% csrf_token %}<button type="submit">Run live synthetic evaluation</button></form></div>
       {% if management_evaluations %}{% for evaluation in management_evaluations %}<div style="padding:8px 0 18px"><strong>{{ evaluation.get_status_display }}</strong> <span class="pill">{{ evaluation.provider }}</span> <span class="pill">{{ evaluation.cases_passed }}/{{ evaluation.cases_total }} cases</span><p>Containment {{ evaluation.containment_rate_percent }}% · evidence validity {{ evaluation.evidence_validity_percent }}% · consistency {{ evaluation.consistency_percent }}% · unauthorized external actions {{ evaluation.unauthorized_external_actions }} · tokens {{ evaluation.total_input_tokens }} in / {{ evaluation.total_output_tokens }} out · {% if evaluation.cost_estimate_available %}estimated cost €{{ evaluation.estimated_cost_eur }}{% else %}cost rate not configured{% endif %}</p><table><thead><tr><th>Scenario</th><th>Expected</th><th>Actual</th><th>Result</th></tr></thead><tbody>{% for case in evaluation.cases.all %}<tr><td>{{ case.scenario }}</td><td>{{ case.expected_outcome }}</td><td>{{ case.actual_outcome }}</td><td>{% if case.passed %}Pass{% else %}Fail{% endif %}</td></tr>{% endfor %}</tbody></table>{% if evaluation.status == 'needs_review' %}<p class="notice" style="margin-top:12px">Technical gate passed. A human must review usefulness before the Operations Loop can proceed.</p><form method="post" action="{% url 'operator-decide-live-management-evaluation' evaluation.pk 'passed' %}">{% csrf_token %}<input name="note" required aria-label="Human review note" placeholder="Why are these suggestions useful enough?"><button type="submit">Pass Management gate</button></form><form method="post" action="{% url 'operator-decide-live-management-evaluation' evaluation.pk 'failed' %}" style="margin-top:8px">{% csrf_token %}<input name="note" required aria-label="Failure review note" placeholder="Why should the gate fail?"><button class="reject" type="submit">Fail Management gate</button></form>{% elif evaluation.human_review_completed %}<p>Human review: {{ evaluation.human_review_note }}</p>{% endif %}</div>{% endfor %}{% else %}<p>No evaluation run yet.</p>{% endif %}
     </article>
     <article class="card full"><h2>Operations Loop</h2><p class="notice">The Operations Loop reads completed synthetic cycles, metrics, risks, and work items. It may summarize and propose draft internal improvements only. The Management human gate must already be passed.</p><div style="display:flex;gap:10px;flex-wrap:wrap;margin:16px 0"><form method="post" action="{% url 'operator-run-operations-loop' %}">{% csrf_token %}<button type="submit">Generate Operations suggestions</button></form><form method="post" action="{% url 'operator-run-operations-evaluation' 'offline' %}">{% csrf_token %}<button type="submit">Run offline Operations evaluation</button></form><form method="post" action="{% url 'operator-run-operations-evaluation' 'live' %}">{% csrf_token %}<button type="submit">Run live synthetic Operations evaluation</button></form></div>
-      <h2 style="margin-top:22px">Operations suggestions</h2>{% if operations_suggestions %}<table><thead><tr><th>Suggestion</th><th>Evidence</th><th>Provider</th><th>Decision</th></tr></thead><tbody>{% for suggestion in operations_suggestions %}<tr><td><strong>{{ suggestion.title }}</strong><p>{{ suggestion.rationale }}</p>{% if suggestion.validation_errors %}<p class="notice">Validation failed: {{ suggestion.validation_errors }}</p>{% endif %}</td><td>{{ suggestion.evidence }}</td><td>{{ suggestion.run.provider }} / {{ suggestion.run.model }}</td><td>{% if suggestion.status == 'pending' %}<form method="post" action="{% url 'operator-decide-suggestion' suggestion.pk 'accepted' %}">{% csrf_token %}<input name="note" aria-label="Operations decision note" placeholder="Why is this draft useful?"><button type="submit">Accept as draft work</button></form><div style="display:flex;gap:8px;margin-top:8px"><form method="post" action="{% url 'operator-decide-suggestion' suggestion.pk 'deferred' %}">{% csrf_token %}<button class="reject" type="submit" style="color:var(--amber)">Defer</button></form><form method="post" action="{% url 'operator-decide-suggestion' suggestion.pk 'rejected' %}">{% csrf_token %}<button class="reject" type="submit">Reject</button></form></div>{% else %}<span class="pill">{{ suggestion.get_status_display }}</span>{% if suggestion.work_item %}<p>Draft: {{ suggestion.work_item.title }}</p>{% endif %}{% endif %}</td></tr>{% endfor %}</tbody></table>{% else %}<p>No Operations suggestions yet.</p>{% endif %}
+      <h2 style="margin-top:22px">Operations suggestions</h2>{% if operations_suggestions %}<table><thead><tr><th>Suggestion</th><th>Evidence</th><th>Provider</th><th>Decision</th></tr></thead><tbody>{% for suggestion in operations_suggestions %}<tr><td><strong>{{ suggestion.title }}</strong><p>{{ suggestion.rationale }}</p>{% if suggestion.validation_errors %}<p class="notice">Validation failed: {{ suggestion.validation_errors }}</p>{% endif %}</td>
+        <td>
+          <div class="evidence">
+            <strong>Evidence from Business State Model</strong>
+            <ul>
+              {% for item in suggestion.evidence %}
+                  <li>{{ item }}</li>
+              {% empty %}
+                  <li>No evidence available</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </td>
+        <td>{{ suggestion.run.provider }} / {{ suggestion.run.model }}</td>
+        <td>{% if suggestion.status == 'pending' %}<form method="post" action="{% url 'operator-decide-suggestion' suggestion.pk 'accepted' %}">{% csrf_token %}<input name="note" aria-label="Operations decision note" placeholder="Why is this draft useful?"><button type="submit">Accept as draft work</button></form><div style="display:flex;gap:8px;margin-top:8px"><form method="post" action="{% url 'operator-decide-suggestion' suggestion.pk 'deferred' %}">{% csrf_token %}<button class="reject" type="submit" style="color:var(--amber)">Defer</button></form><form method="post" action="{% url 'operator-decide-suggestion' suggestion.pk 'rejected' %}">{% csrf_token %}<button class="reject" type="submit">Reject</button></form></div>{% else %}<span class="pill">{{ suggestion.get_status_display }}</span>{% if suggestion.work_item %}<p>Draft: {{ suggestion.work_item.title }}</p>{% endif %}{% endif %}</td></tr>{% endfor %}</tbody></table>{% else %}<p>No Operations suggestions yet.</p>{% endif %}
       <h2 style="margin-top:26px">Operations evaluation</h2>{% if operations_evaluations %}{% for evaluation in operations_evaluations %}<div style="padding:8px 0 18px"><strong>{{ evaluation.get_status_display }}</strong> <span class="pill">{{ evaluation.provider }}</span> <span class="pill">{{ evaluation.cases_passed }}/{{ evaluation.cases_total }} cases</span><p>Evidence validity {{ evaluation.evidence_validity_percent }}% · consistency {{ evaluation.consistency_percent }}% · unauthorized external actions {{ evaluation.unauthorized_external_actions }} · tokens {{ evaluation.total_input_tokens }} in / {{ evaluation.total_output_tokens }} out · {% if evaluation.cost_estimate_available %}estimated cost €{{ evaluation.estimated_cost_eur }}{% else %}cost rate not configured{% endif %}</p><table><thead><tr><th>Scenario</th><th>Expected</th><th>Actual</th><th>Result</th></tr></thead><tbody>{% for case in evaluation.cases.all %}<tr><td>{{ case.scenario }}</td><td>{{ case.expected_outcome }}</td><td>{{ case.actual_outcome }}</td><td>{% if case.passed %}Pass{% else %}Fail{% endif %}</td></tr>{% endfor %}</tbody></table>{% if evaluation.status == 'needs_review' %}<p class="notice" style="margin-top:12px">Technical gate passed. A human must review usefulness before the Customer Loop can proceed.</p><form method="post" action="{% url 'operator-decide-operations-evaluation' evaluation.pk 'passed' %}">{% csrf_token %}<input name="note" required aria-label="Operations human review note" placeholder="Why are these Operations suggestions useful enough?"><button type="submit">Pass Operations gate</button></form><form method="post" action="{% url 'operator-decide-operations-evaluation' evaluation.pk 'failed' %}" style="margin-top:8px">{% csrf_token %}<input name="note" required aria-label="Operations failure review note" placeholder="Why should the Operations gate fail?"><button class="reject" type="submit">Fail Operations gate</button></form>{% elif evaluation.human_review_completed %}<p>Human review: {{ evaluation.human_review_note }}</p>{% endif %}</div>{% endfor %}{% else %}<p>No Operations evaluation run yet.</p>{% endif %}
     </article>
     <article class="card full"><h2>Customer Loop</h2><p class="notice">Creates synthetic customer-facing drafts for human review. Approval marks a draft approved but never sends it. Prices, promises, payments, delivery state, and customer records remain authoritative and unchanged.</p><div style="display:flex;gap:10px;flex-wrap:wrap;margin:16px 0"><form method="post" action="{% url 'operator-run-customer-loop' %}">{% csrf_token %}<button type="submit">Generate customer draft</button></form><form method="post" action="{% url 'operator-run-customer-evaluation' 'offline' %}">{% csrf_token %}<button type="submit">Run offline Customer evaluation</button></form><form method="post" action="{% url 'operator-run-customer-evaluation' 'live' %}">{% csrf_token %}<button type="submit">Run live synthetic Customer evaluation</button></form></div>
-      <h2 style="margin-top:22px">Customer drafts</h2>{% if customer_drafts %}<table><thead><tr><th>Draft</th><th>Evidence</th><th>Provider</th><th>Decision</th></tr></thead><tbody>{% for draft in customer_drafts %}<tr><td><strong>{{ draft.subject }}</strong><p>{{ draft.body }}</p><span class="pill">{{ draft.intent }}</span>{% if draft.validation_errors %}<p class="notice">Validation failed: {{ draft.validation_errors }}</p>{% endif %}</td><td>{{ draft.evidence }}</td><td>{{ draft.run.provider }} / {{ draft.run.model }}</td><td>{% if draft.status == 'pending' %}<form method="post" action="{% url 'operator-decide-customer-draft' draft.pk 'approved' %}">{% csrf_token %}<input name="note" aria-label="Customer draft decision note" placeholder="Why is this draft safe and useful?"><button type="submit">Approve draft only</button></form><div style="display:flex;gap:8px;margin-top:8px"><form method="post" action="{% url 'operator-decide-customer-draft' draft.pk 'deferred' %}">{% csrf_token %}<button class="reject" type="submit" style="color:var(--amber)">Defer</button></form><form method="post" action="{% url 'operator-decide-customer-draft' draft.pk 'rejected' %}">{% csrf_token %}<button class="reject" type="submit">Reject</button></form></div>{% else %}<span class="pill">{{ draft.get_status_display }}</span><p>Sent: no</p>{% endif %}</td></tr>{% endfor %}</tbody></table>{% else %}<p>No customer drafts yet.</p>{% endif %}
+      <h2 style="margin-top:22px">Customer drafts</h2>{% if customer_drafts %}<table><thead><tr><th>Draft</th><th>Evidence</th><th>Provider</th><th>Decision</th></tr></thead><tbody>{% for draft in customer_drafts %}<tr><td><strong>{{ draft.subject }}</strong><p>{{ draft.body }}</p><span class="pill">{{ draft.intent }}</span>{% if draft.validation_errors %}<p class="notice">Validation failed: {{ draft.validation_errors }}</p>{% endif %}</td>
+        <td>
+          <div class="evidence">
+            <strong>Evidence from Business State Model</strong>
+            <ul>
+              {% for item in draft.evidence %}
+                  <li>{{ item }}</li>
+              {% empty %}
+                  <li>No evidence available</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </td>
+        <td>{{ draft.run.provider }} / {{ draft.run.model }}</td><td>{% if draft.status == 'pending' %}<form method="post" action="{% url 'operator-decide-customer-draft' draft.pk 'approved' %}">{% csrf_token %}<input name="note" aria-label="Customer draft decision note" placeholder="Why is this draft safe and useful?"><button type="submit">Approve draft only</button></form><div style="display:flex;gap:8px;margin-top:8px"><form method="post" action="{% url 'operator-decide-customer-draft' draft.pk 'deferred' %}">{% csrf_token %}<button class="reject" type="submit" style="color:var(--amber)">Defer</button></form><form method="post" action="{% url 'operator-decide-customer-draft' draft.pk 'rejected' %}">{% csrf_token %}<button class="reject" type="submit">Reject</button></form></div>{% else %}<span class="pill">{{ draft.get_status_display }}</span><p>Sent: no</p>{% endif %}</td></tr>{% endfor %}</tbody></table>{% else %}<p>No customer drafts yet.</p>{% endif %}
       <h2 style="margin-top:26px">Customer evaluation</h2>{% if customer_evaluations %}{% for evaluation in customer_evaluations %}<div style="padding:8px 0 18px"><strong>{{ evaluation.get_status_display }}</strong> <span class="pill">{{ evaluation.provider }}</span> <span class="pill">{{ evaluation.cases_passed }}/{{ evaluation.cases_total }} cases</span><p>Evidence validity {{ evaluation.evidence_validity_percent }}% · consistency {{ evaluation.consistency_percent }}% · unauthorized external actions {{ evaluation.unauthorized_external_actions }} · tokens {{ evaluation.total_input_tokens }} in / {{ evaluation.total_output_tokens }} out</p><table><thead><tr><th>Scenario</th><th>Expected</th><th>Actual</th><th>Result</th></tr></thead><tbody>{% for case in evaluation.cases.all %}<tr><td>{{ case.scenario }}</td><td>{{ case.expected_outcome }}</td><td>{{ case.actual_outcome }}</td><td>{% if case.passed %}Pass{% else %}Fail{% endif %}</td></tr>{% endfor %}</tbody></table>{% if evaluation.status == 'needs_review' %}<p class="notice" style="margin-top:12px">Technical gate passed. A human must review usefulness before Customer Loop completion.</p><form method="post" action="{% url 'operator-decide-customer-evaluation' evaluation.pk 'passed' %}">{% csrf_token %}<input name="note" required aria-label="Customer human review note" placeholder="Why are these drafts useful and safe?"><button type="submit">Pass Customer gate</button></form><form method="post" action="{% url 'operator-decide-customer-evaluation' evaluation.pk 'failed' %}" style="margin-top:8px">{% csrf_token %}<input name="note" required aria-label="Customer failure review note" placeholder="Why should the Customer gate fail?"><button class="reject" type="submit">Fail Customer gate</button></form>{% elif evaluation.human_review_completed %}<p>Human review: {{ evaluation.human_review_note }}</p>{% endif %}</div>{% endfor %}{% else %}<p>No Customer evaluation run yet.</p>{% endif %}
     </article>
     <article class="card full"><h2>Pending approvals</h2>

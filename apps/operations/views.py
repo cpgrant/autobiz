@@ -24,7 +24,7 @@ from .models import (
     Approval,
     AuditEvent,
     Company,
-    CustomerDraft,  
+    CustomerDraft,
     CustomerEvaluationRun,
     CustomerRequest,
     Deliverable,
@@ -121,6 +121,37 @@ def company_status(request):
     )
 
 
+def format_evidence(evidence):
+    labels = {
+        "customer_request": "Customer Request",
+        "operating_cycle": "Operating Cycle",
+        "work_item": "Work Item",
+        "risk": "Risk",
+        "metric": "Metric",
+        "goal": "Goal",
+        "offer": "Offer",
+        "deliverable": "Deliverable",
+        "engagement": "Engagement",
+    }
+
+    formatted = []
+
+    for item in evidence or []:
+        record_type = item.get("record_type", "")
+        formatted.append(
+            {
+                "label": labels.get(
+                    record_type,
+                    record_type.replace("_", " ").title(),
+                ),
+                "id": item.get("record_id"),
+            }
+        )
+
+    return formatted
+
+
+
 @staff_member_required
 def operator_dashboard(request):
     company = get_object_or_404(Company, key="autobiz")
@@ -138,6 +169,32 @@ def operator_dashboard(request):
         .order_by("-created_at")
         .first()
     )
+
+    management_suggestions = list(
+        Suggestion.objects.filter(
+            run=latest_management_run
+        ).select_related("run", "work_item")[:10]
+    )
+
+
+
+    operations_suggestions = list(
+        Suggestion.objects.filter(
+            run__company=company,
+            run__loop="operations"
+        ).select_related("run", "work_item")[:10]
+    )
+
+    customer_drafts = list(
+        CustomerDraft.objects.filter(
+            run__company=company
+        ).select_related(
+            "run",
+            "run__customer_request"
+        )[:10]
+    )
+
+
     return render(
         request,
         "operations/operator_dashboard.html",
@@ -150,21 +207,20 @@ def operator_dashboard(request):
             "weekly_reports": company.weekly_reports.all()[:8],
             "audit_events": AuditEvent.objects.order_by("-created_at")[:20],
             "latest_management_run": latest_management_run,
-            "management_suggestions": Suggestion.objects.filter(
-                run=latest_management_run
-            ).select_related("run", "work_item")[:10],
-            "operations_suggestions": Suggestion.objects.filter(
-                run__company=company, run__loop="operations"
-            ).select_related("run", "work_item")[:10],
+
+            "management_suggestions": management_suggestions,
+
+            "operations_suggestions": operations_suggestions,
+
             "management_evaluations": company.management_evaluation_runs.prefetch_related("cases")[
                 :5
             ],
             "operations_evaluations": company.operations_evaluation_runs.prefetch_related("cases")[
                 :5
             ],
-            "customer_drafts": CustomerDraft.objects.filter(run__company=company).select_related(
-                "run", "run__customer_request"
-            )[:10],
+
+            "customer_drafts": customer_drafts,
+
             "customer_evaluations": company.customer_evaluation_runs.prefetch_related("cases")[:5],
         },
     )
