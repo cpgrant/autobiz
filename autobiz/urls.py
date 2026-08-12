@@ -30,6 +30,7 @@ from apps.operations.views import (
     operator_run_operations_evaluation,
     operator_run_operations_loop,
     readiness,
+    stripe_webhook,
 )
 
 urlpatterns = [
@@ -133,5 +134,6 @@ urlpatterns = [
         name="customer-simulate-revision",
     ),
     path("health/", health, name="health"),
+    path("webhooks/stripe/", stripe_webhook, name="stripe-webhook"),
     path("ready/", readiness, name="readiness"),
 ]

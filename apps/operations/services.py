@@ -366,24 +366,10 @@ Week 4: review evidence and decide what to continue, change, or stop.
 
 
 @transactional
-def simulate_payment_and_delivery(*, customer_request: CustomerRequest) -> Deliverable:
-    """Record test money and create local work and a deterministic deliverable once."""
+def advance_paid_request_to_delivery(*, customer_request: CustomerRequest) -> Deliverable:
+    """Create the engagement workflow and deliverable for an already-paid request."""
     locked = CustomerRequest.objects.select_for_update().get(pk=customer_request.pk)
-    offer = Offer.objects.select_for_update().get(customer_request=locked)
-    if offer.status != Offer.Status.ACCEPTED:
-        raise ValidationError("The synthetic offer must be accepted before payment.")
-
-    payment, created = SyntheticPayment.objects.get_or_create(
-        offer=offer,
-        defaults={
-            "amount_eur": offer.price_eur,
-            "status": SyntheticPayment.Status.PAID,
-            "paid_at": timezone.now(),
-            "external_reference": f"sim-{locked.pk.hex[:12]}",
-            "is_synthetic": True,
-        },
-    )
-    if created:
+    if locked.engagement_id is None:
         locked.customer.status = Customer.Status.PILOT
         locked.customer.save(update_fields=["status", "updated_at"])
         engagement = Engagement.objects.create(
@@ -391,18 +377,12 @@ def simulate_payment_and_delivery(*, customer_request: CustomerRequest) -> Deliv
             product=locked.product,
             status=Engagement.Status.PILOT,
             starts_on=timezone.localdate(),
-            is_synthetic=True,
+            is_synthetic=locked.is_synthetic,
         )
         locked.engagement = engagement
-        FinancialEntry.objects.create(
-            company=locked.company,
-            key=f"portal-payment-{locked.pk.hex[:12]}",
-            entry_type=FinancialEntry.EntryType.REVENUE,
-            description=f"Synthetic Establish payment from {locked.customer.name}",
-            amount_eur=payment.amount_eur,
-            occurred_on=timezone.localdate(),
-            is_synthetic=True,
-        )
+        Opportunity.objects.filter(
+            company=locked.company, key=f"portal-{locked.pk.hex[:12]}"
+        ).update(stage=Opportunity.Stage.WON, probability_percent=100)
         for position, title in enumerate(
             [
                 "Confirm objective and desired outcome",
@@ -422,13 +402,51 @@ def simulate_payment_and_delivery(*, customer_request: CustomerRequest) -> Deliv
                 ),
                 status=WorkItem.Status.DONE,
                 priority=position,
-                is_synthetic=True,
+                is_synthetic=locked.is_synthetic,
             )
-        Opportunity.objects.filter(
-            company=locked.company, key=f"portal-{locked.pk.hex[:12]}"
-        ).update(stage=Opportunity.Stage.WON, probability_percent=100)
         locked.status = CustomerRequest.Status.DELIVERED
         locked.save(update_fields=["engagement", "status", "updated_at"])
+    deliverable, _ = Deliverable.objects.get_or_create(
+        customer_request=locked,
+        version=1,
+        defaults={
+            "title": "Controlled operating plan",
+            "content": _operating_plan_content(locked),
+            "is_current": True,
+            "is_synthetic": locked.is_synthetic,
+        },
+    )
+    return deliverable
+
+
+@transactional
+def simulate_payment_and_delivery(*, customer_request: CustomerRequest) -> Deliverable:
+    """Record test money and create local work and a deterministic deliverable once."""
+    locked = CustomerRequest.objects.select_for_update().get(pk=customer_request.pk)
+    offer = Offer.objects.select_for_update().get(customer_request=locked)
+    if offer.status != Offer.Status.ACCEPTED:
+        raise ValidationError("The synthetic offer must be accepted before payment.")
+
+    payment, created = SyntheticPayment.objects.get_or_create(
+        offer=offer,
+        defaults={
+            "amount_eur": offer.price_eur,
+            "status": SyntheticPayment.Status.PAID,
+            "paid_at": timezone.now(),
+            "external_reference": f"sim-{locked.pk.hex[:12]}",
+            "is_synthetic": True,
+        },
+    )
+    if created:
+        FinancialEntry.objects.create(
+            company=locked.company,
+            key=f"portal-payment-{locked.pk.hex[:12]}",
+            entry_type=FinancialEntry.EntryType.REVENUE,
+            description=f"Synthetic Establish payment from {locked.customer.name}",
+            amount_eur=payment.amount_eur,
+            occurred_on=timezone.localdate(),
+            is_synthetic=True,
+        )
         AuditEvent.objects.create(
             event_type="synthetic-payment-recorded",
             actor="system:internal-payment-simulator",
@@ -439,17 +457,7 @@ def simulate_payment_and_delivery(*, customer_request: CustomerRequest) -> Deliv
                 "synthetic": True,
             },
         )
-    deliverable, _ = Deliverable.objects.get_or_create(
-        customer_request=locked,
-        version=1,
-        defaults={
-            "title": "Controlled operating plan",
-            "content": _operating_plan_content(locked),
-            "is_current": True,
-            "is_synthetic": True,
-        },
-    )
-    return deliverable
+    return advance_paid_request_to_delivery(customer_request=locked)
 
 
 @transactional

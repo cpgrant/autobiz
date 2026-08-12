@@ -1,3 +1,6 @@
+import json
+import os
+
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import ValidationError
@@ -5,6 +8,7 @@ from django.db import connections
 from django.db.models import Sum
 from django.db.utils import OperationalError
 from django.http import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -43,7 +47,7 @@ from .operations_evaluation import (
     run_operations_evaluation,
 )
 from .operations_loop import run_operations_loop
-from .payments import create_stripe_checkout_session
+from .payments import create_stripe_checkout_session, handle_stripe_webhook
 from .services import (
     accept_synthetic_offer,
     decide_approval,
@@ -83,6 +87,23 @@ def readiness(request):
             status=503,
         )
     return JsonResponse({"status": "ready", "service": "autobiz", "database": "ok"})
+
+
+@csrf_exempt
+@require_POST
+def stripe_webhook(request):
+    if not os.getenv("STRIPE_WEBHOOK_SECRET") or not request.headers.get(
+        "Stripe-Signature"
+    ):
+        return JsonResponse({"error": "Stripe webhook verification is not configured"}, status=400)
+    try:
+        result = handle_stripe_webhook(
+            payload=request.body,
+            sig_header=request.headers.get("Stripe-Signature"),
+        )
+    except (ValueError, json.JSONDecodeError) as error:
+        return JsonResponse({"error": str(error)}, status=400)
+    return JsonResponse(result)
 
 
 def company_status(request):
@@ -586,10 +607,10 @@ def customer_payment(request, request_id):
         return redirect("customer-engagement", request_id=request_id)
 
     success_url = request.build_absolute_uri(
-        f"/customer/request/{request_id}/engagement/"
+        f"/customer/{request_id}/engagement/"
     )
     cancel_url = request.build_absolute_uri(
-        f"/customer/request/{request_id}/payment/"
+        f"/customer/{request_id}/payment/"
     )
     checkout_session = create_stripe_checkout_session(
         offer=customer_request_record.offer,

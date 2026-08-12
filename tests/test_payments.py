@@ -4,7 +4,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.core.management import call_command
 
-from apps.operations.models import CustomerRequest, FinancialEntry, Offer
+from apps.operations.models import (
+    CustomerRequest,
+    Deliverable,
+    FinancialEntry,
+    Offer,
+    SyntheticPayment,
+)
 from apps.operations.payments import (
     create_stripe_checkout_session,
     handle_stripe_webhook,
@@ -91,3 +97,47 @@ def test_handle_stripe_webhook(test_offer):
 
     req.refresh_from_db()
     assert req.status == CustomerRequest.Status.PAID
+    assert req.engagement_id is not None
+    assert Deliverable.objects.filter(customer_request=req, is_current=True).exists()
+    assert not SyntheticPayment.objects.filter(offer=test_offer).exists()
+
+
+@pytest.mark.django_db
+def test_duplicate_stripe_webhook_delivery_is_idempotent(test_offer):
+    req = test_offer.customer_request
+    payload = {
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "id": "cs_duplicate_session",
+                "client_reference_id": str(req.id),
+                "amount_total": 5000,
+            }
+        },
+    }
+
+    handle_stripe_webhook(payload=payload)
+    handle_stripe_webhook(payload=payload)
+
+    req.refresh_from_db()
+    assert FinancialEntry.objects.filter(key="stripe-cs_duplicate_session").count() == 1
+    assert req.engagement.work_items.count() == 4
+    assert Deliverable.objects.filter(customer_request=req, is_current=True).count() == 1
+
+
+@pytest.mark.django_db
+def test_stripe_webhook_endpoint_passes_signature_to_handler(client):
+    with patch("apps.operations.views.handle_stripe_webhook") as handler:
+        handler.return_value = {"status": "success"}
+        response = client.post(
+            "/webhooks/stripe/",
+            data=b'{"type":"checkout.session.completed"}',
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="t=123,v1=signature",
+        )
+
+    assert response.status_code == 200
+    handler.assert_called_once_with(
+        payload=b'{"type":"checkout.session.completed"}',
+        sig_header="t=123,v1=signature",
+    )

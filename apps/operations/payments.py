@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import os
@@ -9,6 +10,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .models import CustomerRequest, FinancialEntry, Offer
+from .services import advance_paid_request_to_delivery
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +49,6 @@ def create_stripe_checkout_session(
 
     try:
         session = stripe.checkout.Session.create(
-            payment_method_types=["card"],
             line_items=[
                 {
                     "price_data": {
@@ -55,6 +56,7 @@ def create_stripe_checkout_session(
                         "product_data": {
                             "name": str(offer.title),
                             "description": str(offer.scope)[:250],
+                            "tax_code": "txcd_10105001",
                         },
                         "unit_amount": price_cents,
                     },
@@ -98,15 +100,19 @@ def record_successful_payment(
         customer_request.status = CustomerRequest.Status.PAID
         customer_request.save(update_fields=["status", "updated_at"])
 
-        key = f"rev-{customer_request.id.hex[:12]}-{int(timezone.now().timestamp())}"
-        ledger_entry = FinancialEntry.objects.create(
+        reference_hash = hashlib.sha256(reference.encode("utf-8")).hexdigest()[:32]
+        ledger_key = f"stripe-{reference_hash}"
+        
+        ledger_entry, _ = FinancialEntry.objects.get_or_create(
             company=customer_request.company,
-            key=key,
-            entry_type=FinancialEntry.EntryType.REVENUE,
-            amount_eur=amount_eur,
-            description=f"Payment for Request {customer_request.id} ({reference})"[:240],
-            occurred_on=timezone.now().date(),
-            is_synthetic=customer_request.is_synthetic,
+            key=ledger_key,
+            defaults={
+                "entry_type": FinancialEntry.EntryType.REVENUE,
+                "amount_eur": amount_eur,
+                "description": f"Payment for Request {customer_request.id} ({reference})"[:240],
+                "occurred_on": timezone.now().date(),
+                "is_synthetic": customer_request.is_synthetic,
+            },
         )
         return ledger_entry
 
@@ -135,9 +141,14 @@ def handle_stripe_webhook(
 
         event = json.loads(payload)
 
+    if hasattr(event, "to_dict"):
+        event = event.to_dict()
+
     event_type = event.get("type", "")
+
     if event_type == "checkout.session.completed":
         session = event.get("data", {}).get("object", {})
+
         request_id = session.get("client_reference_id") or session.get("metadata", {}).get(
             "customer_request_id"
         )
@@ -152,6 +163,7 @@ def handle_stripe_webhook(
                     amount_eur=amount_eur,
                     reference=str(session.get("id", "stripe_event")),
                 )
+                advance_paid_request_to_delivery(customer_request=customer_request)
                 return {"status": "success", "processed_request": request_id}
             except CustomerRequest.DoesNotExist:
                 logger.error("CustomerRequest ID %s not found for payment webhook", request_id)
